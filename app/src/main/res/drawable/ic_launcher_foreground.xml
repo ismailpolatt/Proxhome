@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Border / Rack Frame -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#334155"
+        android:strokeWidth="1.5"
+        android:pathData="M 24,20 L 84,20 L 84,88 L 24,88 Z" />
+
+    <!-- Server Node 1 (Top) -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1.5"
+        android:pathData="M 28,26 h 52 a 3,3 0 0,1 3,3 v 10 a 3,3 0 0,1 -3,3 h -52 a 3,3 0 0,1 -3,-3 v -10 a 3,3 0 0,1 3,-3 z" />
+    
+    <!-- Node 1 LEDs -->
+    <path android:fillColor="#10B981" android:pathData="M34,34a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#10B981" android:pathData="M40,34a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#3B82F6" android:pathData="M46,34a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <!-- Node 1 Grill lines -->
+    <path android:fillColor="#00000000" android:strokeColor="#475569" android:strokeWidth="1" android:pathData="M 54,34 h 22" />
+
+    <!-- Server Node 2 (Middle) -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1.5"
+        android:pathData="M 28,46 h 52 a 3,3 0 0,1 3,3 v 10 a 3,3 0 0,1 -3,3 h -52 a 3,3 0 0,1 -3,-3 v -10 a 3,3 0 0,1 3,-3 z" />
+    
+    <!-- Node 2 LEDs -->
+    <path android:fillColor="#10B981" android:pathData="M34,54a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#F59E0B" android:pathData="M40,54a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#3B82F6" android:pathData="M46,54a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <!-- Node 2 Grill lines -->
+    <path android:fillColor="#00000000" android:strokeColor="#475569" android:strokeWidth="1" android:pathData="M 54,54 h 22" />
+
+    <!-- Server Node 3 (Bottom) -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1.5"
+        android:pathData="M 28,66 h 52 a 3,3 0 0,1 3,3 v 10 a 3,3 0 0,1 -3,3 h -52 a 3,3 0 0,1 -3,-3 v -10 a 3,3 0 0,1 3,-3 z" />
+    
+    <!-- Node 3 LEDs -->
+    <path android:fillColor="#10B981" android:pathData="M34,74a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#10B981" android:pathData="M40,74a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#3B82F6" android:pathData="M46,74a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <!-- Node 3 Grill lines -->
+    <path android:fillColor="#00000000" android:strokeColor="#475569" android:strokeWidth="1" android:pathData="M 54,74 h 22" />
+
+</vector>

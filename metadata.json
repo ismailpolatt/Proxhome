@@ -1,0 +1,6 @@
+{
+  "name": "Proxmox",
+  "description": "Monitor cluster status, manage VMs/containers, and deploy 1-click LXC community helper scripts on your Proxmox VE server.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
