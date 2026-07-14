@@ -20,7 +20,14 @@ object ProxmoxApiClient {
         .build()
 
     fun createApi(baseUrl: String, bypassSsl: Boolean): ProxmoxApi {
-        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        var normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        if (!normalizedUrl.contains("api2/json/")) {
+            normalizedUrl = if (normalizedUrl.endsWith("/")) {
+                "${normalizedUrl}api2/json/"
+            } else {
+                "$normalizedUrl/api2/json/"
+            }
+        }
         
         val clientBuilder = if (bypassSsl) {
             getUnsafeOkHttpClientBuilder()
