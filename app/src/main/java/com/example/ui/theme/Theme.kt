@@ -10,6 +10,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// Global theme state for simple adaptive color shadowing
+var isAppInDarkTheme = true
+
 private val DarkColorScheme =
   darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
 
@@ -38,6 +41,7 @@ fun MyApplicationTheme(
   primaryColor: androidx.compose.ui.graphics.Color? = null,
   content: @Composable () -> Unit,
 ) {
+  isAppInDarkTheme = darkTheme
   var colorScheme =
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {

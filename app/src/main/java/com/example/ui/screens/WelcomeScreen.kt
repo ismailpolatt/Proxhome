@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -50,8 +51,14 @@ fun WelcomeScreen(
     var isShowingSettings by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
 
-    val darkSlateBg = Color(0xFF0F172A)
-    val obsidianBg = Color(0xFF020617)
+    val isDark = when (viewModel.themeSetting) {
+        "Dark" -> true
+        "Light" -> false
+        else -> isSystemInDarkTheme()
+    }
+
+    val darkSlateBg = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
+    val obsidianBg = if (isDark) Color(0xFF020617) else Color(0xFFF8FAFC)
     val proxmoxOrange = when (viewModel.primaryColorSetting) {
         "Mavi" -> Color(0xFF0284C7) // Sky Blue accent
         "Yeşil" -> Color(0xFF059669) // Emerald Green accent
@@ -118,7 +125,7 @@ fun WelcomeScreen(
                             text = "ProxMan",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
+                                color = if (isDark) Color.White else Color(0xFF0F172A),
                                 fontSize = 22.sp
                             )
                         )
@@ -132,12 +139,12 @@ fun WelcomeScreen(
                             },
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(Color(0xFF1E293B), CircleShape)
+                                .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh",
-                                tint = Color.White,
+                                tint = if (isDark) Color.White else Color(0xFF0F172A),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -147,12 +154,12 @@ fun WelcomeScreen(
                             onClick = { isShowingSettings = true },
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(Color(0xFF1E293B), CircleShape)
+                                .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Settings",
-                                tint = Color.White,
+                                tint = if (isDark) Color.White else Color(0xFF0F172A),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -164,7 +171,7 @@ fun WelcomeScreen(
                     text = "Çevrimici Sunucular",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = if (isDark) Color.White else Color(0xFF0F172A)
                     ),
                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
                 )
@@ -223,7 +230,8 @@ fun WelcomeScreen(
                                 },
                                 onDelete = { viewModel.deleteServer(server) },
                                 showCounts = showCounts,
-                                accentColor = proxmoxOrange
+                                accentColor = proxmoxOrange,
+                                isDark = isDark
                             )
                         }
                     }
@@ -289,7 +297,7 @@ fun WelcomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFF1E293B))
+                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
                             .clickable {
                                 viewModel.clearServerForm()
                                 isAddingServer = false
@@ -299,11 +307,11 @@ fun WelcomeScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White,
+                            tint = if (isDark) Color.White else Color(0xFF0F172A),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Geri", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Geri", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     }
 
                     // Title
@@ -311,7 +319,7 @@ fun WelcomeScreen(
                         text = if (viewModel.editingServerId != null) "Sunucuyu Düzenle" else "Yeni Sunucu Ekle",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
+                            color = if (isDark) Color.White else Color(0xFF0F172A),
                             fontSize = 18.sp
                         )
                     )
@@ -321,9 +329,9 @@ fun WelcomeScreen(
                         onClick = { showHelpDialog = true },
                         modifier = Modifier
                             .size(36.dp)
-                            .background(Color(0xFF1E293B), CircleShape)
+                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), CircleShape)
                     ) {
-                        Text("?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("?", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
 
@@ -341,7 +349,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Sunucu Türü",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -351,8 +359,8 @@ fun WelcomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F172A))
+                                    .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
                             ) {
                                 // PVE Button (Full Width Top)
                                 val isPve = viewModel.serverTypeInput == "PVE"
@@ -373,15 +381,15 @@ fun WelcomeScreen(
                                         Icon(
                                             imageVector = Icons.Default.Computer,
                                             contentDescription = "PVE",
-                                            tint = Color.White,
+                                            tint = if (isPve) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("PVE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        Text("PVE", color = if (isPve) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                     }
                                 }
 
-                                HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+                                HorizontalDivider(color = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), thickness = 1.dp)
 
                                 // Row of PBS and PDM
                                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -404,11 +412,11 @@ fun WelcomeScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Inbox,
                                                 contentDescription = "PBS",
-                                                tint = Color.White,
+                                                tint = if (isPbs) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("PBS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("PBS", color = if (isPbs) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                         }
                                     }
 
@@ -416,7 +424,7 @@ fun WelcomeScreen(
                                         modifier = Modifier
                                             .width(1.dp)
                                             .height(48.dp)
-                                            .background(Color(0xFF334155))
+                                            .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                                     )
 
                                     // PDM Button
@@ -438,11 +446,11 @@ fun WelcomeScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Language,
                                                 contentDescription = "PDM",
-                                                tint = Color.White,
+                                                tint = if (isPdm) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("PDM", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("PDM", color = if (isPdm) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                         }
                                     }
                                 }
@@ -455,7 +463,7 @@ fun WelcomeScreen(
                                     "PDM" -> "Veri Merkezi Yönetimi için"
                                     else -> "Sanal Ortam Sunucusu için"
                                 },
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
@@ -467,7 +475,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Kimlik Doğrulama Yöntemi",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -477,8 +485,8 @@ fun WelcomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F172A))
+                                    .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
                             ) {
                                 // Standard/Password method
                                 val isStandard = viewModel.authTypeInput == "PASSWORD"
@@ -494,11 +502,11 @@ fun WelcomeScreen(
                                         Icon(
                                             imageVector = Icons.Default.VpnKey,
                                             contentDescription = "Standart",
-                                            tint = Color.White,
+                                            tint = if (isStandard) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Standart", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text("Standart", color = if (isStandard) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
                                 }
 
@@ -506,7 +514,7 @@ fun WelcomeScreen(
                                     modifier = Modifier
                                         .width(1.dp)
                                         .height(44.dp)
-                                        .background(Color(0xFF334155))
+                                        .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                                 )
 
                                 // Token/OpenID alternative method
@@ -523,18 +531,18 @@ fun WelcomeScreen(
                                         Icon(
                                             imageVector = Icons.Default.Shield,
                                             contentDescription = "API Token",
-                                            tint = Color.White,
+                                            tint = if (isToken) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("API Token", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text("API Token", color = if (isToken) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
                                 }
                             }
 
                             Text(
                                 text = if (viewModel.authTypeInput == "PASSWORD") "Kullanıcı adı ve şifre ile doğrulama kullan" else "Proxmox API Token ID ve Secret kullan",
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
@@ -546,7 +554,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Görünen Ad",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 6.dp)
@@ -554,16 +562,16 @@ fun WelcomeScreen(
                             OutlinedTextField(
                                 value = viewModel.serverNameInput,
                                 onValueChange = { viewModel.serverNameInput = it },
-                                placeholder = { Text("Bu cihaz için bir isim girin", color = Color(0xFF64748B)) },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                placeholder = { Text("Bu cihaz için bir isim girin", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedContainerColor = Color(0xFF0F172A),
-                                    unfocusedContainerColor = Color(0xFF0F172A),
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    focusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
+                                    unfocusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
                                     focusedBorderColor = proxmoxOrange,
-                                    unfocusedBorderColor = Color(0xFF334155)
+                                    unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -577,7 +585,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Ana Bilgisayar Adı",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 6.dp)
@@ -591,16 +599,16 @@ fun WelcomeScreen(
                                 OutlinedTextField(
                                     value = viewModel.serverHostInput,
                                     onValueChange = { viewModel.serverHostInput = it },
-                                    placeholder = { Text("Hostname veya IP girin", color = Color(0xFF64748B)) },
-                                    leadingIcon = { Icon(Icons.Default.Language, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                    placeholder = { Text("Hostname veya IP girin", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
+                                    leadingIcon = { Icon(Icons.Default.Language, contentDescription = null, tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                     singleLine = true,
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedContainerColor = Color(0xFF0F172A),
-                                        unfocusedContainerColor = Color(0xFF0F172A),
+                                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                        focusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
+                                        unfocusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
                                         focusedBorderColor = proxmoxOrange,
-                                        unfocusedBorderColor = Color(0xFF334155)
+                                        unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
@@ -611,20 +619,20 @@ fun WelcomeScreen(
                                 Row(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF0F172A))
+                                        .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                                        .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
                                 ) {
                                     listOf("https", "http").forEach { proto ->
                                         val isSel = viewModel.serverProtocolInput == proto
                                         Box(
                                             modifier = Modifier
                                                 .clickable { viewModel.serverProtocolInput = proto }
-                                                .background(if (isSel) Color(0xFF334155) else Color.Transparent)
+                                                .background(if (isSel) (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)) else Color.Transparent)
                                                 .padding(horizontal = 12.dp, vertical = 14.dp)
                                         ) {
                                             Text(
                                                 text = proto,
-                                                color = if (isSel) Color.White else Color(0xFF94A3B8),
+                                                color = if (isSel) (if (isDark) Color.White else Color(0xFF0F172A)) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)),
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -634,7 +642,7 @@ fun WelcomeScreen(
                             }
                             Text(
                                 text = "Güvenli HTTPS bağlantısı kullanılıyor (önerilen)",
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
@@ -646,7 +654,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Bağlantı Noktası (Port)",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 6.dp)
@@ -654,17 +662,17 @@ fun WelcomeScreen(
                             OutlinedTextField(
                                 value = viewModel.serverPortInput,
                                 onValueChange = { viewModel.serverPortInput = it },
-                                placeholder = { Text("8006", color = Color(0xFF64748B)) },
-                                leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                placeholder = { Text("8006", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
+                                leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedContainerColor = Color(0xFF0F172A),
-                                    unfocusedContainerColor = Color(0xFF0F172A),
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    focusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
+                                    unfocusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
                                     focusedBorderColor = proxmoxOrange,
-                                    unfocusedBorderColor = Color(0xFF334155)
+                                    unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -672,7 +680,7 @@ fun WelcomeScreen(
                             )
                             Text(
                                 text = "Varsayılan port: ${if (viewModel.serverTypeInput == "PBS") "8007" else if (viewModel.serverTypeInput == "PDM") "8000" else "8006"}",
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
@@ -684,7 +692,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = "Kullanıcı Adı",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 6.dp)
@@ -698,16 +706,16 @@ fun WelcomeScreen(
                                 OutlinedTextField(
                                     value = viewModel.usernameInput,
                                     onValueChange = { viewModel.usernameInput = it },
-                                    placeholder = { Text("Kullanıcı adı girin", color = Color(0xFF64748B)) },
-                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                    placeholder = { Text("Kullanıcı adı girin", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
+                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                     singleLine = true,
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedContainerColor = Color(0xFF0F172A),
-                                        unfocusedContainerColor = Color(0xFF0F172A),
+                                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                        focusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
+                                        unfocusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
                                         focusedBorderColor = proxmoxOrange,
-                                        unfocusedBorderColor = Color(0xFF334155)
+                                        unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
@@ -718,8 +726,8 @@ fun WelcomeScreen(
                                 Row(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF0F172A))
+                                        .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                                        .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
                                 ) {
                                     val suffixes = when (viewModel.serverTypeInput) {
                                         "PBS" -> listOf("@pam", "@pbs")
@@ -731,12 +739,12 @@ fun WelcomeScreen(
                                         Box(
                                             modifier = Modifier
                                                 .clickable { viewModel.updateUsernameSuffix(suffix) }
-                                                .background(if (isSelected) Color(0xFF334155) else Color.Transparent)
+                                                .background(if (isSelected) (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)) else Color.Transparent)
                                                 .padding(horizontal = 10.dp, vertical = 14.dp)
                                         ) {
                                             Text(
                                                 text = suffix,
-                                                color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                                color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)),
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -746,7 +754,7 @@ fun WelcomeScreen(
                             }
                             Text(
                                 text = "Kullanıcılar için @pam, Linux kullanıcıları için @pam veya @pve/@pbs kullanın",
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
@@ -758,7 +766,7 @@ fun WelcomeScreen(
                         Column {
                             Text(
                                 text = if (viewModel.authTypeInput == "TOKEN") "Token Değeri / Secret" else "Şifre",
-                                color = Color(0xFF94A3B8),
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(bottom = 6.dp)
@@ -772,8 +780,8 @@ fun WelcomeScreen(
                                         viewModel.passwordInput = it
                                     }
                                 },
-                                placeholder = { Text("Şifre veya token girin", color = Color(0xFF64748B)) },
-                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                placeholder = { Text("Şifre veya token girin", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
+                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                 singleLine = true,
                                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 trailingIcon = {
@@ -781,17 +789,17 @@ fun WelcomeScreen(
                                         Icon(
                                             imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                             contentDescription = "Toggle visibility",
-                                            tint = Color(0xFF94A3B8)
+                                            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
                                         )
                                     }
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedContainerColor = Color(0xFF0F172A),
-                                    unfocusedContainerColor = Color(0xFF0F172A),
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    focusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
+                                    unfocusedContainerColor = if (isDark) Color(0xFF0F172A) else Color.White,
                                     focusedBorderColor = proxmoxOrange,
-                                    unfocusedBorderColor = Color(0xFF334155)
+                                    unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -806,8 +814,8 @@ fun WelcomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF0F172A))
-                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
+                                .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -821,21 +829,21 @@ fun WelcomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.Tune,
                                         contentDescription = "Gelişmiş Seçenekler",
-                                        tint = Color.White,
+                                        tint = if (isDark) Color.White else Color(0xFF0F172A),
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
-                                    Text("Gelişmiş Seçenekler", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("Gelişmiş Seçenekler", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }
                                 Icon(
                                     imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                     contentDescription = "Toggle Advanced",
-                                    tint = Color.White
+                                    tint = if (isDark) Color.White else Color(0xFF0F172A)
                                 )
                             }
 
                             if (showAdvancedOptions) {
-                                HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+                                HorizontalDivider(color = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), thickness = 1.dp)
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     // Bypass SSL Switch
                                     Row(
@@ -844,10 +852,10 @@ fun WelcomeScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text("SSL Doğrulamasını Atla", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                            Text("SSL Doğrulamasını Atla", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                             Text(
                                                 "Kendi kendine imzalı sertifikalar için gereklidir",
-                                                color = Color(0xFF64748B),
+                                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                                 fontSize = 12.sp
                                             )
                                         }
@@ -866,7 +874,7 @@ fun WelcomeScreen(
                                         // Token Name field
                                         Text(
                                             text = "Token İsmi (Token ID)",
-                                            color = Color(0xFF94A3B8),
+                                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier.padding(bottom = 6.dp)
@@ -874,15 +882,15 @@ fun WelcomeScreen(
                                         OutlinedTextField(
                                             value = viewModel.tokenNameInput,
                                             onValueChange = { viewModel.tokenNameInput = it },
-                                            placeholder = { Text("Örn: android-token", color = Color(0xFF64748B)) },
+                                            placeholder = { Text("Örn: android-token", color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)) },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(
-                                                focusedTextColor = Color.White,
-                                                unfocusedTextColor = Color.White,
-                                                focusedContainerColor = Color(0xFF020617),
-                                                unfocusedContainerColor = Color(0xFF020617),
+                                                focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                                unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                                focusedContainerColor = if (isDark) Color(0xFF020617) else Color.White,
+                                                unfocusedContainerColor = if (isDark) Color(0xFF020617) else Color.White,
                                                 focusedBorderColor = proxmoxOrange,
-                                                unfocusedBorderColor = Color(0xFF334155)
+                                                unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
                                             ),
                                             modifier = Modifier.fillMaxWidth()
                                         )
@@ -934,12 +942,12 @@ fun WelcomeScreen(
                                 .height(50.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF38BDF8)
+                                contentColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
                             ),
-                            border = borderStroke(1.dp, Color(0xFF38BDF8))
+                            border = borderStroke(1.dp, if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7))
                         ) {
                             if (viewModel.isTestingConnection) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color(0xFF38BDF8))
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7))
                             } else {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -989,8 +997,9 @@ fun WelcomeScreen(
                                     .height(50.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF94A3B8)
-                                )
+                                    contentColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
+                                ),
+                                border = borderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                             ) {
                                 Text("Vazgeç", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             }
@@ -1042,6 +1051,7 @@ fun ServerItemCard(
     onDelete: () -> Unit,
     showCounts: Boolean = true,
     accentColor: Color = Color(0xFFEA580C),
+    isDark: Boolean = androidx.compose.foundation.isSystemInDarkTheme(),
     modifier: Modifier = Modifier
 ) {
     val isPbs = server.url.contains("8007") || server.name.lowercase().contains("pbs")
@@ -1053,9 +1063,9 @@ fun ServerItemCard(
     val serverStatusColor = Color(0xFF10B981) // Emerald Green
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF0F172A) else Color.White),
         border = CardDefaults.outlinedCardBorder().copy(
-            brush = SolidColor(if (isDemo) Color(0xFF10B981) else Color(0xFF1E293B))
+            brush = SolidColor(if (isDemo) Color(0xFF10B981) else if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -1072,7 +1082,7 @@ fun ServerItemCard(
                     Text(
                         text = server.name,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = if (isDark) Color.White else Color(0xFF0F172A),
                         fontSize = 18.sp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1134,14 +1144,14 @@ fun ServerItemCard(
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = server.url.removePrefix("https://").removePrefix("http://"),
                         fontSize = 13.sp,
-                        color = Color(0xFF94A3B8),
+                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -1151,13 +1161,13 @@ fun ServerItemCard(
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (server.authType == "TOKEN") "${server.username}!${server.tokenName}" else server.username,
-                        color = Color(0xFF94A3B8),
+                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                         fontSize = 13.sp
                     )
                 }
@@ -1167,13 +1177,13 @@ fun ServerItemCard(
                     Icon(
                         imageVector = if (isPbs) Icons.Default.CloudUpload else Icons.Default.Storage,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isPbs) "Yedekleme Sunucusu" else "Sanal Ortam",
-                        color = Color(0xFF94A3B8),
+                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                         fontSize = 13.sp
                     )
                 }
@@ -1183,14 +1193,14 @@ fun ServerItemCard(
                     Icon(
                         imageVector = Icons.Default.Memory,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = if (isPbs) "pbs" else "pve",
-                            color = Color(0xFF94A3B8),
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                             fontSize = 13.sp
                         )
                         Spacer(modifier = Modifier.width(6.dp))

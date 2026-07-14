@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
@@ -48,13 +49,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
@@ -89,6 +94,21 @@ fun DashboardScreen(
     val tasksState = viewModel.tasksUiState
     val coroutineScope = rememberCoroutineScope()
 
+    val isDark = when (viewModel.themeSetting) {
+        "Dark" -> true
+        "Light" -> false
+        else -> isSystemInDarkTheme()
+    }
+
+    // Dynamic adaptive theme colors
+    val bgMain = if (isDark) Color(0xFF020617) else Color(0xFFF8FAFC)
+    val bgCard = if (isDark) Color(0xFF1E293B) else Color(0xFFFFFFFF)
+    val bgSurface = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
+    val borderPrimary = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color(0xFFE2E8F0) else Color(0xFF334155)
+    val textMuted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
     var currentTab by remember { mutableStateOf("dashboard") } // "dashboard", "resources", "tasks"
     var selectedResourceForDetails by remember { mutableStateOf<ClusterResource?>(null) }
     var showAiCopilot by remember { mutableStateOf(false) }
@@ -113,7 +133,7 @@ fun DashboardScreen(
                             Text(
                                 text = server.name,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = textPrimary,
                                 fontSize = 16.sp
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -122,7 +142,7 @@ fun DashboardScreen(
                         }
                         Text(
                             text = server.url,
-                            color = Color(0xFF64748B),
+                            color = textMuted,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             maxLines = 1,
@@ -135,15 +155,10 @@ fun DashboardScreen(
                         onClick = onDisconnect,
                         modifier = Modifier.testTag("disconnect_button")
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textPrimary)
                     }
                 },
                 actions = {
-                    val isDark = when (viewModel.themeSetting) {
-                        "Dark" -> true
-                        "Light" -> false
-                        else -> isSystemInDarkTheme()
-                    }
                     IconButton(
                         onClick = {
                             val newTheme = if (isDark) "Light" else "Dark"
@@ -168,14 +183,14 @@ fun DashboardScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A),
-                    titleContentColor = Color.White
+                    containerColor = bgSurface,
+                    titleContentColor = textPrimary
                 )
             )
         },
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF0F172A),
+                containerColor = bgSurface,
                 tonalElevation = 8.dp
             ) {
                 NavigationBarItem(
@@ -205,10 +220,10 @@ fun DashboardScreen(
                     )
                 )
                 NavigationBarItem(
-                    selected = currentTab == "tasks",
-                    onClick = { currentTab = "tasks" },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Logs") },
-                    label = { Text("Tasks", fontSize = 11.sp) },
+                    selected = currentTab == "terminal",
+                    onClick = { currentTab = "terminal" },
+                    icon = { Icon(Icons.Default.Terminal, contentDescription = "Terminal") },
+                    label = { Text("Terminal", fontSize = 11.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFF10B981),
                         selectedTextColor = Color(0xFF10B981),
@@ -259,7 +274,7 @@ fun DashboardScreen(
                     .testTag("ai_copilot_fab")
             )
         },
-        containerColor = Color(0xFF020617) // Deep Slate/Black
+        containerColor = bgMain
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -333,7 +348,11 @@ fun DashboardScreen(
                                     viewModel = viewModel,
                                     initialTypeFilter = if (currentTab == "vms") "VM" else if (currentTab == "lxcs") "LXC" else "ALL"
                                 )
-                                "tasks" -> TasksTab(tasksState = tasksState, viewModel = viewModel)
+                                "terminal" -> TerminalTab(
+                                    tasksState = tasksState,
+                                    viewModel = viewModel,
+                                    data = clusterState
+                                )
                                 "scripts" -> CommunityScriptsTab(data = clusterState, viewModel = viewModel)
                                 "options" -> OptionsTab(viewModel = viewModel)
                                 else -> {}
@@ -668,16 +687,6 @@ fun MetricsTab(
         // Enterprise Metrics Detailed Breakdown Widget
         item {
             EnterpriseMetricsBreakdownWidget(data = data)
-        }
-
-        // Real-Time Console Log Viewer Widget
-        item {
-            RealTimeConsoleLogWidget(tasksState = tasksState)
-        }
-
-        // Interactive Proxmox CLI Terminal Widget
-        item {
-            ProxmoxTerminalWidget(viewModel = viewModel, data = data)
         }
 
         // Cluster Summary Cards
@@ -1079,17 +1088,25 @@ fun LiveSparkline(
 
         val stepX = width / 20f
 
-        // Draw CPU line (Emerald)
+        // Draw CPU line (Emerald) using a smooth bezier curve
         if (cpuHistory.size > 1) {
             val cpuPath = Path()
-            cpuHistory.forEachIndexed { index, value ->
-                val x = index * stepX
-                val normalizedY = (1f - (value / 100f).coerceIn(0f, 1f)) * height
-                if (index == 0) {
-                    cpuPath.moveTo(x, normalizedY)
-                } else {
-                    cpuPath.lineTo(x, normalizedY)
-                }
+            val firstVal = cpuHistory.first()
+            val firstY = (1f - (firstVal / 100f).coerceIn(0f, 1f)) * height
+            cpuPath.moveTo(0f, firstY)
+
+            for (i in 1 until cpuHistory.size) {
+                val xPrev = (i - 1) * stepX
+                val xCurr = i * stepX
+                val yPrev = (1f - (cpuHistory[i - 1] / 100f).coerceIn(0f, 1f)) * height
+                val yCurr = (1f - (cpuHistory[i] / 100f).coerceIn(0f, 1f)) * height
+
+                val conX1 = xPrev + stepX / 2f
+                val conY1 = yPrev
+                val conX2 = xPrev + stepX / 2f
+                val conY2 = yCurr
+
+                cpuPath.cubicTo(conX1, conY1, conX2, conY2, xCurr, yCurr)
             }
             drawPath(
                 path = cpuPath,
@@ -1098,17 +1115,25 @@ fun LiveSparkline(
             )
         }
 
-        // Draw Memory line (Blue)
+        // Draw Memory line (Blue) using a smooth bezier curve
         if (memHistory.size > 1) {
             val memPath = Path()
-            memHistory.forEachIndexed { index, value ->
-                val x = index * stepX
-                val normalizedY = (1f - (value / 100f).coerceIn(0f, 1f)) * height
-                if (index == 0) {
-                    memPath.moveTo(x, normalizedY)
-                } else {
-                    memPath.lineTo(x, normalizedY)
-                }
+            val firstVal = memHistory.first()
+            val firstY = (1f - (firstVal / 100f).coerceIn(0f, 1f)) * height
+            memPath.moveTo(0f, firstY)
+
+            for (i in 1 until memHistory.size) {
+                val xPrev = (i - 1) * stepX
+                val xCurr = i * stepX
+                val yPrev = (1f - (memHistory[i - 1] / 100f).coerceIn(0f, 1f)) * height
+                val yCurr = (1f - (memHistory[i] / 100f).coerceIn(0f, 1f)) * height
+
+                val conX1 = xPrev + stepX / 2f
+                val conY1 = yPrev
+                val conX2 = xPrev + stepX / 2f
+                val conY2 = yCurr
+
+                memPath.cubicTo(conX1, conY1, conX2, conY2, xCurr, yCurr)
             }
             drawPath(
                 path = memPath,
@@ -1918,246 +1943,558 @@ fun ResourceDetailsOverlay(
     onDismiss: () -> Unit,
     onResourceClick: (ClusterResource) -> Unit = {}
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-            shape = RoundedCornerShape(12.dp),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = SolidColor(Color(0xFF334155))
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 12.dp)
+    var activeTab by remember { mutableStateOf("metrics") } // "metrics" or "ssh"
+    val isRunning = resource.status == "running" || resource.status == "online"
+    
+    // SSH Terminal State
+    val sshHistory = remember { mutableStateListOf<String>() }
+    var sshInput by remember { mutableStateOf("") }
+    val sshListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(resource.vmid) {
+        if (sshHistory.isEmpty()) {
+            sshHistory.add("Connecting to SSH gateway root@${resource.node}.local (VM-${resource.vmid ?: "NODE"})...")
+            delay(200)
+            sshHistory.add("Connection established. Authenticating via public key...")
+            delay(250)
+            sshHistory.add("Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 6.2.0-39-generic x86_64)")
+            sshHistory.add("")
+            sshHistory.add(" * Documentation:  https://help.ubuntu.com")
+            sshHistory.add(" * Management:     https://landscape.canonical.com")
+            sshHistory.add(" * Support:        https://ubuntu.com/pro")
+            sshHistory.add("")
+            sshHistory.add("System information as of ${java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US).format(java.util.Date())}:")
+            sshHistory.add("")
+            sshHistory.add("  System load:  0.08               Processes:             104")
+            sshHistory.add("  Usage of /:   14.2% of 32.00GB   Users logged in:       1")
+            sshHistory.add("  Memory usage: 34%                IPv4 address for eth0: 10.0.3.${resource.vmid ?: 150}")
+            sshHistory.add("")
+            sshHistory.add("Last login: Tue Jul 14 08:12:35 2026 from 10.0.0.25")
+            sshHistory.add("root@${resource.name ?: "pve-guest"}:~# ")
+        }
+    }
+
+    LaunchedEffect(sshHistory.size) {
+        if (sshHistory.isNotEmpty()) {
+            sshListState.animateScrollToItem(sshHistory.lastIndex)
+        }
+    }
+
+    val executeSshCommand = { cmd: String ->
+        val trimmed = cmd.trim()
+        if (trimmed.isNotEmpty()) {
+            // Remove prompt ending from last line and replace it
+            if (sshHistory.isNotEmpty() && sshHistory.last().endsWith(":~# ")) {
+                val lastPrompt = sshHistory.removeAt(sshHistory.lastIndex)
+                sshHistory.add("$lastPrompt$trimmed")
+            } else {
+                sshHistory.add("root@${resource.name ?: "pve-guest"}:~# $trimmed")
+            }
+
+            val parts = trimmed.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+            if (parts.isNotEmpty()) {
+                val baseCmd = parts[0].lowercase(Locale.US)
+                coroutineScope.launch {
+                    when (baseCmd) {
+                        "clear" -> {
+                            sshHistory.clear()
+                        }
+                        "help" -> {
+                            sshHistory.add("Available guest SSH commands:")
+                            sshHistory.add("  neofetch             Display beautiful guest system info")
+                            sshHistory.add("  uptime               Show guest machine uptime info")
+                            sshHistory.add("  df -h                Display disk allocation inside guest")
+                            sshHistory.add("  ip a                 Show active network interfaces and IPs")
+                            sshHistory.add("  systemctl status     Get services status of system systemd")
+                            sshHistory.add("  ping -c 3 8.8.8.8    Ping external DNS interface to verify uplink")
+                            sshHistory.add("  clear                Clear the console")
+                        }
+                        "neofetch" -> {
+                            delay(100)
+                            sshHistory.add("      _.._         root@${resource.name ?: "pve-guest"}")
+                            sshHistory.add("    .' .-'`        --------------------")
+                            sshHistory.add("   /  /            OS: Ubuntu 22.04.4 LTS (Jammy Jellyfish)")
+                            sshHistory.add("   |  |            Kernel: x86_64 Linux 6.2.0-39-generic")
+                            sshHistory.add("   \\  \\            Uptime: ${formatUptime(resource.uptime ?: 124500L)}")
+                            sshHistory.add("    '._'-._        Shell: bash 5.1.16")
+                            sshHistory.add("       `''`        CPU: AMD EPYC 7763 (2 Cores)")
+                            sshHistory.add("                   Memory: ${formatBytes(resource.mem ?: 1024_000_000L)} / ${formatBytes(resource.maxmem ?: 4096_000_000L)}")
+                            sshHistory.add("                   GPU: Proxmox VirGL 3D Driver")
+                        }
+                        "uptime" -> {
+                            sshHistory.add(" ${java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(java.util.Date())} up ${formatUptime(resource.uptime ?: 124500L)},  1 user,  load average: 0.02, 0.05, 0.08")
+                        }
+                        "df", "df -h" -> {
+                            sshHistory.add("Filesystem      Size  Used Avail Use% Mounted on")
+                            sshHistory.add("/dev/sda1        32G  4.6G   26G  15% /")
+                            sshHistory.add("udev            2.0G     0  2.0G   0% /dev")
+                            sshHistory.add("tmpfs           394M  1.1M  393M   1% /run")
+                        }
+                        "ip", "ip a" -> {
+                            sshHistory.add("1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000")
+                            sshHistory.add("    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00")
+                            sshHistory.add("    inet 127.0.0.1/8 scope host lo")
+                            sshHistory.add("2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000")
+                            sshHistory.add("    link/ether bc:24:11:ea:9c:82 brd ff:ff:ff:ff:ff:ff")
+                            sshHistory.add("    inet 10.0.3.${resource.vmid ?: 150}/24 brd 10.0.3.255 scope global eth0")
+                        }
+                        "systemctl" -> {
+                            sshHistory.add("● nginx.service - A high performance web server and a reverse proxy server")
+                            sshHistory.add("     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)")
+                            sshHistory.add("     Active: active (running) since Mon 2026-07-13 14:22:10 UTC; 18h ago")
+                            sshHistory.add("   Main PID: 456 (nginx)")
+                            sshHistory.add("      Tasks: 2 (limit: 4684)")
+                            sshHistory.add("     Memory: 8.4M")
+                            sshHistory.add("        CPU: 420ms")
+                        }
+                        "ping" -> {
+                            sshHistory.add("PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.")
+                            delay(200)
+                            sshHistory.add("64 bytes from 8.8.8.8: icmp_seq=1 ttl=118 time=8.42 ms")
+                            delay(200)
+                            sshHistory.add("64 bytes from 8.8.8.8: icmp_seq=2 ttl=118 time=9.11 ms")
+                            delay(200)
+                            sshHistory.add("64 bytes from 8.8.8.8: icmp_seq=3 ttl=118 time=8.60 ms")
+                            sshHistory.add("")
+                            sshHistory.add("--- 8.8.8.8 ping statistics ---")
+                            sshHistory.add("3 packets transmitted, 3 received, 0% packet loss, time 2003ms")
+                            sshHistory.add("rtt min/avg/max/mdev = 8.420/8.710/9.110/0.294 ms")
+                        }
+                        else -> {
+                            sshHistory.add("bash: command not found: $baseCmd. Type 'help' to list guest system commands.")
+                        }
+                    }
+                    sshHistory.add("root@${resource.name ?: "pve-guest"}:~# ")
+                }
+            } else {
+                sshHistory.add("root@${resource.name ?: "pve-guest"}:~# ")
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false // Make it full screen dialog
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF030712) // Slate 950 deep dark theme
         ) {
-            LazyColumn(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
-                // Header
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                // Top Header Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = resource.vmid?.toString() ?: "NODE",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981),
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF334155))
-                                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        text = resource.vmid?.toString() ?: "NODE",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = resource.name ?: resource.node,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            Text(
+                                text = resource.name ?: resource.node,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             Text(
                                 text = "Node: ${resource.node} | Type: ${resource.type.uppercase()}",
-                                color = Color(0xFF64748B),
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(top = 4.dp)
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
                             )
                         }
+                    }
 
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                        }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E293B))
+                            .size(36.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                 }
 
-                // Power Status
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (resource.status == "running" || resource.status == "online") Color(0x1010B981) else Color(0x10EF4444)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                // If type is VM or LXC, show gorgeous tabs for Metrics vs SSH Terminal
+                if (resource.type == "qemu" || resource.type == "lxc") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                            .background(Color(0xFF0F172A), RoundedCornerShape(10.dp))
+                            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
+                            .padding(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        val tabs = listOf(
+                            "metrics" to "METRICS & POWER",
+                            "ssh" to "SSH GUEST TERMINAL"
+                        )
+                        tabs.forEach { (tabKey, tabLabel) ->
+                            val isSelected = activeTab == tabKey
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(if (resource.status == "running" || resource.status == "online") Color(0xFF10B981) else Color(0xFFEF4444))
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "System Status is currently: ${resource.status?.uppercase()}",
-                                color = if (resource.status == "running" || resource.status == "online") Color(0xFF10B981) else Color(0xFFF87171),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Color(0xFF1E293B) else Color.Transparent)
+                                    .clickable { activeTab = tabKey }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (tabKey == "metrics") Icons.Default.Dns else Icons.Default.Terminal,
+                                        contentDescription = null,
+                                        tint = if (isSelected) Color(0xFF10B981) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = tabLabel,
+                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // Core metrics progress cards
-                if (resource.status == "running" || resource.status == "online") {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            // CPU Metric
-                            val cpuPct = (resource.cpu ?: 0.0) * 100
-                            MetricRow(
-                                label = "Processor usage",
-                                valueStr = "${String.format("%.1f", cpuPct)}% of ${(resource.maxcpu ?: 0.0).toInt()} Cores",
-                                progress = (resource.cpu ?: 0.0).toFloat(),
-                                color = Color(0xFF10B981)
-                            )
+                // Render Active Tab Content
+                if (activeTab == "metrics" || (resource.type != "qemu" && resource.type != "lxc")) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // 1. Status Power Card with toggle Switch (Stitch / Toggle support)
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isRunning) Color(0x1510B981) else Color(0x15EF4444)
+                                ),
+                                border = BorderStroke(1.dp, if (isRunning) Color(0x3010B981) else Color(0x30EF4444)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isRunning) Color(0xFF10B981) else Color(0xFFEF4444))
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "System is ${if (isRunning) "RUNNING" else "STOPPED"}",
+                                                color = if (isRunning) Color(0xFF34D399) else Color(0xFFF87171),
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                text = "Use toggle switch to control power",
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
 
-                            // RAM Metric
-                            val ramUsed = resource.mem ?: 0L
-                            val ramMax = resource.maxmem ?: 1L
-                            MetricRow(
-                                label = "Memory Allocation",
-                                valueStr = "${formatBytes(ramUsed)} / ${formatBytes(ramMax)}",
-                                progress = (ramUsed.toDouble() / ramMax.toDouble()).toFloat(),
-                                color = Color(0xFF3B82F6)
-                            )
+                                    // Material 3 Switch with clean styles
+                                    Switch(
+                                        checked = isRunning,
+                                        onCheckedChange = { checked ->
+                                            val action = if (checked) "start" else "shutdown"
+                                            viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, action)
+                                        },
+                                        enabled = !viewModel.isExecutingAction,
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color(0xFF10B981),
+                                            uncheckedThumbColor = Color(0xFF64748B),
+                                            uncheckedTrackColor = Color(0xFF1E293B)
+                                        )
+                                    )
+                                }
+                            }
+                        }
 
-                            // Disk Metric
-                            val diskUsed = resource.disk ?: 0L
-                            val diskMax = resource.maxdisk ?: 1L
-                            if (diskMax > 0L) {
-                                MetricRow(
-                                    label = "Storage allocation",
-                                    valueStr = "${formatBytes(diskUsed)} / ${formatBytes(diskMax)}",
-                                    progress = (diskUsed.toDouble() / diskMax.toDouble()).toFloat(),
-                                    color = Color(0xFFEAB308)
+                        // 2. Compute Metrics Gauges
+                        if (isRunning) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                    border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Text(
+                                            text = "HARDWARE RESOURCES",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            letterSpacing = 1.sp
+                                        )
+
+                                        // CPU Metric
+                                        val cpuPct = (resource.cpu ?: 0.0) * 100
+                                        MetricRow(
+                                            label = "Processor allocation",
+                                            valueStr = "${String.format("%.1f", cpuPct)}% of ${(resource.maxcpu ?: 0.0).toInt()} Cores",
+                                            progress = (resource.cpu ?: 0.0).toFloat(),
+                                            color = Color(0xFF10B981)
+                                        )
+
+                                        // RAM Metric
+                                        val ramUsed = resource.mem ?: 0L
+                                        val ramMax = resource.maxmem ?: 1L
+                                        MetricRow(
+                                            label = "Memory Allocation",
+                                            valueStr = "${formatBytes(ramUsed)} / ${formatBytes(ramMax)}",
+                                            progress = (ramUsed.toDouble() / ramMax.toDouble()).toFloat(),
+                                            color = Color(0xFF3B82F6)
+                                        )
+
+                                        // Disk Metric
+                                        val diskUsed = resource.disk ?: 0L
+                                        val diskMax = resource.maxdisk ?: 1L
+                                        if (diskMax > 0L) {
+                                            MetricRow(
+                                                label = "Storage allocation",
+                                                valueStr = "${formatBytes(diskUsed)} / ${formatBytes(diskMax)}",
+                                                progress = (diskUsed.toDouble() / diskMax.toDouble()).toFloat(),
+                                                color = Color(0xFFEAB308)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. System Info Details Card
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "SYSTEM METADATA",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    RowDetail("System Uptime", formatUptime(resource.uptime ?: 0L))
+                                    RowDetail("Virtualizer Type", resource.type.uppercase())
+                                    RowDetail("Cluster Host", resource.node)
+                                    if (resource.vmid != null) {
+                                        RowDetail("PVE ID Index", resource.vmid.toString())
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Manual Action Button Overrides
+                        if (resource.type == "qemu" || resource.type == "lxc") {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    if (isRunning) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "shutdown")
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.weight(1f),
+                                                enabled = !viewModel.isExecutingAction
+                                            ) {
+                                                Icon(Icons.Default.PowerSettingsNew, contentDescription = "Shutdown", modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Shutdown", fontSize = 13.sp)
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "reboot")
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.weight(1f),
+                                                enabled = !viewModel.isExecutingAction
+                                            ) {
+                                                Icon(Icons.Default.RestartAlt, contentDescription = "Reboot", modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Reboot", fontSize = 13.sp)
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "stop")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !viewModel.isExecutingAction
+                                        ) {
+                                            Icon(Icons.Default.Cancel, contentDescription = "Force Stop", modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Force Stop (SIGKILL)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "start")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !viewModel.isExecutingAction
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = "Start", modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Power On System Instance", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 5. Virtual Machines for Node details
+                        if (resource.type == "node") {
+                            val clusterState = viewModel.clusterUiState as? ClusterUiState.Success
+                            val nodeVms = clusterState?.vms?.filter { it.node == resource.node } ?: emptyList()
+                            item {
+                                NodeVirtualMachinesList(
+                                    vms = nodeVms,
+                                    viewModel = viewModel,
+                                    onResourceClick = onResourceClick
                                 )
                             }
                         }
                     }
-
-                    // Trend Chart Section
-                    item {
-                        NodeUsageTrendsChart(resource = resource)
-                    }
-
-                    // Network & System Details
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                            modifier = Modifier.fillMaxWidth()
+                } else {
+                    // SSH Guest Terminal active tab
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF000000))
+                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        LazyColumn(
+                            state = sshListState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text("System Info", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                RowDetail("System Uptime", formatUptime(resource.uptime ?: 0L))
-                                RowDetail("Virtualizer Type", resource.type.uppercase())
-                                RowDetail("Cluster Location", resource.node)
-                                if (resource.vmid != null) {
-                                    RowDetail("PVE ID", resource.vmid.toString())
-                                }
+                            items(sshHistory.size) { idx ->
+                                val line = sshHistory[idx]
+                                Text(
+                                    text = line,
+                                    color = if (line.startsWith("root@") || line.contains(":~#")) Color(0xFF34D399) 
+                                            else if (line.startsWith("[ERROR]")) Color(0xFFF87171) 
+                                            else if (line.startsWith("  System load:") || line.startsWith("  Usage of /:") || line.startsWith("  Memory usage:")) Color(0xFF60A5FA)
+                                            else Color(0xFFF1F5F9),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 16.sp
+                                )
                             }
                         }
-                    }
 
-                    // Virtual Machines for the Node
-                    if (resource.type == "node") {
-                        val clusterState = viewModel.clusterUiState as? ClusterUiState.Success
-                        val nodeVms = clusterState?.vms?.filter { it.node == resource.node } ?: emptyList()
-                        item {
-                            NodeVirtualMachinesList(
-                                vms = nodeVms,
-                                viewModel = viewModel,
-                                onResourceClick = onResourceClick
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Command input
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF111827), RoundedCornerShape(6.dp))
+                                .border(1.dp, Color(0xFF374151), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "root@${resource.name ?: "pve-guest"}:~# ",
+                                color = Color(0xFF34D399),
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
                             )
-                        }
-                    }
-                }
 
-                // Power Controls Section
-                if (resource.type == "qemu" || resource.type == "lxc") {
-                    item {
-                        Text(
-                            text = "Power & Service Controls",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
-
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            if (resource.status == "running") {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "shutdown")
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f),
-                                        enabled = !viewModel.isExecutingAction
-                                    ) {
-                                        Icon(Icons.Default.PowerSettingsNew, contentDescription = "Shutdown")
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Shutdown")
+                            BasicTextField(
+                                value = sshInput,
+                                onValueChange = { sshInput = it },
+                                textStyle = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        executeSshCommand(sshInput)
+                                        sshInput = ""
                                     }
+                                ),
+                                cursorBrush = SolidColor(Color(0xFF34D399)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp)
+                            )
 
-                                    Button(
-                                        onClick = {
-                                            viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "reboot")
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f),
-                                        enabled = !viewModel.isExecutingAction
-                                    ) {
-                                        Icon(Icons.Default.RestartAlt, contentDescription = "Reboot")
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Reboot")
-                                    }
-                                }
-
-                                Button(
+                            if (sshInput.isNotEmpty()) {
+                                IconButton(
                                     onClick = {
-                                        viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "stop")
+                                        executeSshCommand(sshInput)
+                                        sshInput = ""
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !viewModel.isExecutingAction
+                                    modifier = Modifier.size(24.dp)
                                 ) {
-                                    Icon(Icons.Default.Cancel, contentDescription = "Force Stop")
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Force Stop (SIGKILL)")
-                                }
-                            } else {
-                                Button(
-                                    onClick = {
-                                        viewModel.executeAction(resource.node, resource.vmid ?: 0, resource.type, "start")
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !viewModel.isExecutingAction
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = "Start")
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Power On System", fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        imageVector = Icons.Default.Send,
+                                        contentDescription = "Send",
+                                        tint = Color(0xFF34D399),
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -3318,126 +3655,325 @@ fun ClusterStatusSummaryCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Resource Footprint Header
-            Text(
-                text = "GLOBAL RESOURCE FOOTPRINT",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF64748B),
-                letterSpacing = 0.5.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // Linear Progress rows
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // CPU Progress
+            // Resource Footprint Header and Modern Container Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF0F172A)) // Sleek dark card container
+                    .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("CPU Usage", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
                         Text(
-                            text = "${String.format("%.1f", data.cpuUsagePct)}% of ${data.totalCpuCores.toInt()} Cores",
-                            color = Color(0xFF94A3B8),
+                            text = "GLOBAL RESOURCE FOOTPRINT",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8), // Cyan-400 modern accent
+                            letterSpacing = 0.75.sp
                         )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x1A38BDF8))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "LIVE TELEMETRY",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8),
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { (data.cpuUsagePct / 100.0).toFloat().coerceIn(0f, 1f) },
-                        color = Color(0xFF10B981),
-                        trackColor = Color(0xFF334155),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                    )
-                }
 
-                // Memory Progress
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF3B82F6))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("RAM Usage", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                        val memUsedBytes = calculateBytesUsed(data.totalMemory, data.memUsagePct)
-                        Text(
-                            text = "${formatBytes(memUsedBytes)} / ${formatBytes(data.totalMemory)} (${String.format("%.1f", data.memUsagePct)}%)",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { (data.memUsagePct / 100.0).toFloat().coerceIn(0f, 1f) },
-                        color = Color(0xFF3B82F6),
-                        trackColor = Color(0xFF334155),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                    )
-                }
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                // Storage Progress
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // CPU Progress
+                        Column {
+                            val cpuPct = data.cpuUsagePct
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "CPU Usage",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                val cpuStatus = when {
+                                    cpuPct < 40 -> "OPTIMAL"
+                                    cpuPct < 75 -> "STABLE"
+                                    else -> "HIGH LOAD"
+                                }
+                                val cpuStatusColor = when {
+                                    cpuPct < 40 -> Color(0xFF10B981)
+                                    cpuPct < 75 -> Color(0xFF3B82F6)
+                                    else -> Color(0xFFEF4444)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(cpuStatusColor.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = cpuStatus,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = cpuStatusColor
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${String.format("%.1f", cpuPct)}% of ${data.totalCpuCores.toInt()} Cores",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Segmented Progress Bar
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF59E0B))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Storage", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFF1E293B))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth((cpuPct.toFloat() / 100f).coerceIn(0f, 1f))
+                                        .background(
+                                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(Color(0xFF10B981).copy(alpha = 0.6f), Color(0xFF10B981))
+                                            )
+                                        )
+                                )
+                                // Segment lines
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    repeat(11) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .width(1.5.dp)
+                                                .background(Color(0xFF0F172A).copy(alpha = 0.6f))
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        val storageUsedBytes = calculateBytesUsed(data.totalStorage, data.storageUsagePct)
-                        Text(
-                            text = "${formatBytes(storageUsedBytes)} / ${formatBytes(data.totalStorage)} (${String.format("%.1f", data.storageUsagePct)}%)",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+
+                        // Memory Progress
+                        Column {
+                            val memPct = data.memUsagePct
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF3B82F6))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "RAM Usage",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                val memStatus = when {
+                                    memPct < 50 -> "OPTIMAL"
+                                    memPct < 85 -> "STABLE"
+                                    else -> "HEAVY"
+                                }
+                                val memStatusColor = when {
+                                    memPct < 50 -> Color(0xFF10B981)
+                                    memPct < 85 -> Color(0xFF3B82F6)
+                                    else -> Color(0xFFF59E0B)
+                                }
+                                val memUsedBytes = calculateBytesUsed(data.totalMemory, memPct)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(memStatusColor.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = memStatus,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = memStatusColor
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${formatBytes(memUsedBytes)} / ${formatBytes(data.totalMemory)} (${String.format("%.1f", memPct)}%)",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Segmented Progress Bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFF1E293B))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth((memPct.toFloat() / 100f).coerceIn(0f, 1f))
+                                        .background(
+                                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(Color(0xFF3B82F6).copy(alpha = 0.6f), Color(0xFF3B82F6))
+                                            )
+                                        )
+                                )
+                                // Segment lines
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    repeat(11) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .width(1.5.dp)
+                                                .background(Color(0xFF0F172A).copy(alpha = 0.6f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Storage Progress
+                        Column {
+                            val storagePct = data.storageUsagePct
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFF59E0B))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Storage",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                val storageStatus = when {
+                                    storagePct < 60 -> "OPTIMAL"
+                                    storagePct < 85 -> "NORMAL"
+                                    else -> "FULL"
+                                }
+                                val storageStatusColor = when {
+                                    storagePct < 60 -> Color(0xFF10B981)
+                                    storagePct < 85 -> Color(0xFFF59E0B)
+                                    else -> Color(0xFFEF4444)
+                                }
+                                val storageUsedBytes = calculateBytesUsed(data.totalStorage, storagePct)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(storageStatusColor.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = storageStatus,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = storageStatusColor
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${formatBytes(storageUsedBytes)} / ${formatBytes(data.totalStorage)} (${String.format("%.1f", storagePct)}%)",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // Segmented Progress Bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFF1E293B))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth((storagePct.toFloat() / 100f).coerceIn(0f, 1f))
+                                        .background(
+                                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(Color(0xFFF59E0B).copy(alpha = 0.6f), Color(0xFFF59E0B))
+                                            )
+                                        )
+                                )
+                                // Segment lines
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    repeat(11) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .width(1.5.dp)
+                                                .background(Color(0xFF0F172A).copy(alpha = 0.6f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { (data.storageUsagePct / 100.0).toFloat().coerceIn(0f, 1f) },
-                        color = Color(0xFFF59E0B),
-                        trackColor = Color(0xFF334155),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                    )
                 }
             }
 
@@ -4271,461 +4807,194 @@ fun CommunityScriptsTab(
     modifier: Modifier = Modifier
 ) {
     val baseScripts = remember {
-        listOf(
-            CommunityScript(
-                id = "home_assistant",
-                name = "Home Assistant LXC",
-                category = "Home Automation",
-                description = "Unattended LXC container for Home Assistant Core. Ideal for local smart home orchestration and lightning-fast deployment.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/homeassistant.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 16,
-                osDistribution = "Debian 12",
-                website = "https://www.home-assistant.io/",
-                brandColor = Color(0xFF03A9F4),
-                icon = Icons.Default.Home,
-                rating = 4.9f,
-                totalInstalls = "4.8k+"
-            ),
-            CommunityScript(
-                id = "pi_hole",
-                name = "Pi-hole DNS Ad-blocker",
-                category = "Networking",
-                description = "Deploy a network-wide ad blocker and local DNS resolver. Protects all your home devices from ads, trackers, and malicious domains.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/pihole.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://pi-hole.net/",
-                brandColor = Color(0xFFF44336),
-                icon = Icons.Default.Shield,
-                rating = 4.8f,
-                totalInstalls = "3.2k+"
-            ),
-            CommunityScript(
-                id = "plex",
-                name = "Plex Media Server",
-                category = "Media & Storage",
-                description = "Organize and stream your personal movies, music, and photos to all your screens. Supports hardware acceleration passthrough where available.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/plex.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 20,
-                osDistribution = "Ubuntu 22.04",
-                website = "https://www.plex.tv/",
-                brandColor = Color(0xFFE5A93B),
-                icon = Icons.Default.PlayArrow,
-                rating = 4.7f,
-                totalInstalls = "5.5k+"
-            ),
-            CommunityScript(
-                id = "docker",
-                name = "Docker Engine LXC",
-                category = "DevTools & Containers",
-                description = "An LXC container optimized for Docker hosting, pre-configured with Docker Engine, Docker Compose, and proper overlayfs setup.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/docker.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 20,
-                osDistribution = "Debian 12",
-                website = "https://www.docker.com/",
-                brandColor = Color(0xFF2496ED),
-                icon = Icons.Default.DeveloperMode,
-                rating = 4.9f,
-                totalInstalls = "6.1k+"
-            ),
-            CommunityScript(
-                id = "nginx_proxy_manager",
-                name = "Nginx Proxy Manager",
-                category = "Networking",
-                description = "Expose your web services easily and securely with an intuitive Web UI, automated Let's Encrypt SSL certificates, and custom routing rules.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/nginxproxymanager.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://nginxproxymanager.com/",
-                brandColor = Color(0xFF00C4B4),
-                icon = Icons.Default.Dns,
-                rating = 4.6f,
-                totalInstalls = "2.8k+"
-            ),
-            CommunityScript(
-                id = "vaultwarden",
-                name = "Vaultwarden Vault",
-                category = "Networking",
-                description = "An alternative Bitwarden compatible server written in Rust. Lightweight, secure, and self-hosted password vault for your entire network.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/vaultwarden.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 6,
-                osDistribution = "Debian 12",
-                website = "https://github.com/dani-garcia/vaultwarden",
-                brandColor = Color(0xFF175DDC),
-                icon = Icons.Default.Lock,
-                rating = 4.9f,
-                totalInstalls = "4.2k+"
-            ),
-            CommunityScript(
-                id = "adguard",
-                name = "AdGuard Home",
-                category = "Networking",
-                description = "A network-wide software for blocking ads & tracking. Restricts adult content, blocks malware, and offers comprehensive parental controls.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/adguard.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://adguard.com/adguard-home.html",
-                brandColor = Color(0xFF2CC990),
-                icon = Icons.Default.Shield,
-                rating = 4.8f,
-                totalInstalls = "1.9k+"
-            ),
-            CommunityScript(
-                id = "grafana",
-                name = "Grafana Dashboards",
-                category = "Databases & Monitoring",
-                description = "Query, visualize, alert on, and understand your Proxmox system metrics. Build beautiful custom host dashboards.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/grafana.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://grafana.com/",
-                brandColor = Color(0xFFF47A20),
-                icon = Icons.Default.TrendingUp,
-                rating = 4.7f,
-                totalInstalls = "2.5k+"
-            ),
-            CommunityScript(
-                id = "influxdb",
-                name = "InfluxDB Time Series DB",
-                category = "Databases & Monitoring",
-                description = "High-performance data store optimized for time-series data. Perfect for storing Proxmox metric history and sensor telemetry.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/influxdb.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 10,
-                osDistribution = "Debian 12",
-                website = "https://www.influxdata.com/",
-                brandColor = Color(0xFF139C6B),
-                icon = Icons.Default.Storage,
-                rating = 4.6f,
-                totalInstalls = "1.8k+"
-            ),
-            CommunityScript(
-                id = "nodered",
-                name = "Node-RED Flow Creator",
-                category = "DevTools & Containers",
-                description = "Low-code programming tool for event-driven applications. Wire hardware devices, APIs, and online services together easily.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/nodered.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://nodered.org/",
-                brandColor = Color(0xFF8F0000),
-                icon = Icons.Default.Share,
-                rating = 4.5f,
-                totalInstalls = "1.4k+"
-            ),
-            CommunityScript(
-                id = "nextcloud",
-                name = "Nextcloud Personal Cloud",
-                category = "Media & Storage",
-                description = "A safe home for all your data. Access, share, and collaborate on your files, calendars, contacts, and mail from any device.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/nextcloud.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 16,
-                osDistribution = "Debian 12",
-                website = "https://nextcloud.com/",
-                brandColor = Color(0xFF0082C9),
-                icon = Icons.Default.Cloud,
-                rating = 4.8f,
-                totalInstalls = "3.9k+"
-            ),
-            CommunityScript(
-                id = "prometheus",
-                name = "Prometheus Monitoring",
-                category = "Databases & Monitoring",
-                description = "Power your system monitoring and alerting. Collects real-time host and container metrics in a robust time-series database.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/prometheus.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://prometheus.io/",
-                brandColor = Color(0xFFE6522C),
-                icon = Icons.Default.DeveloperMode,
-                rating = 4.7f,
-                totalInstalls = "1.7k+"
-            ),
-            CommunityScript(
-                id = "jellyfin",
-                name = "Jellyfin Media Server",
-                category = "Media & Storage",
-                description = "The Volunteer-built Software Media System. Jellyfin is an open-source, free-software media server that lets you control your media streaming and play it anywhere.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/jellyfin.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 16,
-                osDistribution = "Ubuntu 22.04",
-                website = "https://jellyfin.org/",
-                brandColor = Color(0xFF00A4E4),
-                icon = Icons.Default.PlayArrow,
-                rating = 4.8f,
-                totalInstalls = "4.1k+"
-            ),
-            CommunityScript(
-                id = "uptimekuma",
-                name = "Uptime Kuma Status",
-                category = "Databases & Monitoring",
-                description = "A self-hosted monitoring tool like Uptime Robot. High performance monitoring of HTTP(s) / TCP / Ping / DNS / Push / Steam / Game Server metrics.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/uptimekuma.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://uptime.kuma.pet/",
-                brandColor = Color(0xFF5CD8B3),
-                icon = Icons.Default.Share,
-                rating = 4.9f,
-                totalInstalls = "3.5k+"
-            ),
-            CommunityScript(
-                id = "tailscale",
-                name = "Tailscale Zero-Config VPN",
-                category = "Networking",
-                description = "Zero config VPN. Easily connect your Proxmox containers and hosts safely over encrypted WireGuard connections from anywhere in the world.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/tailscale.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://tailscale.com/",
-                brandColor = Color(0xFF000000),
-                icon = Icons.Default.Shield,
-                rating = 4.8f,
-                totalInstalls = "2.9k+"
-            ),
-            CommunityScript(
-                id = "portainer",
-                name = "Portainer Docker UI",
-                category = "DevTools & Containers",
-                description = "Deploy, configure, and secure Docker environments in minutes. A fully loaded intuitive dashboard for running single hosts or Swarms/Kubernetes.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/portainer.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://www.portainer.io/",
-                brandColor = Color(0xFF0B63C5),
-                icon = Icons.Default.DeveloperMode,
-                rating = 4.8f,
-                totalInstalls = "5.1k+"
-            ),
-            CommunityScript(
-                id = "homebridge",
-                name = "Homebridge Ecosystem Bridge",
-                category = "Home Automation",
-                description = "Homebridge integrates with smart home devices that do not natively support Apple HomeKit. Perfect companion for iOS and smart-ecosystem bridging.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/homebridge.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://homebridge.io/",
-                brandColor = Color(0xFFE3592A),
-                icon = Icons.Default.Home,
-                rating = 4.6f,
-                totalInstalls = "1.9k+"
-            ),
-            CommunityScript(
-                id = "wireguard",
-                name = "WireGuard VPN",
-                category = "Networking",
-                description = "Extremely simple yet fast and modern VPN that utilizes state-of-the-art cryptography. Secures your entire Proxmox network behind an ultra-light VPN server.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/wireguard.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://www.wireguard.com/",
-                brandColor = Color(0xFF88171A),
-                icon = Icons.Default.Shield,
-                rating = 4.9f,
-                totalInstalls = "3.3k+"
-            ),
-            CommunityScript(
-                id = "qbittorrent",
-                name = "qBittorrent client",
-                category = "Media & Storage",
-                description = "An open-source software alternative to µTorrent. Lightweight bittorrent client equipped with an integrated web interface for remote queue management.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/qbittorrent.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://www.qbittorrent.org/",
-                brandColor = Color(0xFF2B6CA3),
-                icon = Icons.Default.Cloud,
-                rating = 4.7f,
-                totalInstalls = "2.4k+"
-            ),
-            CommunityScript(
-                id = "postgresql",
-                name = "PostgreSQL DB",
-                category = "Databases & Monitoring",
-                description = "A powerful, open-source object-relational database system with over 35 years of active development. Perfect for complex application storage.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/postgres.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 1024,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://www.postgresql.org/",
-                brandColor = Color(0xFF336791),
-                icon = Icons.Default.Storage,
-                rating = 4.8f,
-                totalInstalls = "1.6k+"
+        val list = ArrayList<CommunityScript>()
+        val mainCategories = listOf(
+            "Ad-blocking & DNS", "AI & Machine Learning", "Backup & Sync", "Communication & Chat",
+            "Databases - NoSQL", "Databases - Relational", "DevTools & CI/CD", "Dashboards & Portals",
+            "Document Management", "Downloaders & Torrents", "File & Cloud Storage", "Gaming Servers",
+            "Home Automation & IoT", "Media Indexers & PVR", "Media Servers & Streaming", "Monitoring & Alerting",
+            "Networking & Firewalls", "Operating Systems (LXC/VM)", "Security & Auth", "Smart Home Bridges",
+            "System Utilities", "Time Series & Analytics", "Web Servers & Reverse Proxy", "Workflow Automation",
+            "Documentation & Wikis", "Enterprise Storage"
+        )
+
+        val categorySoftwareList = mapOf(
+            "Ad-blocking & DNS" to listOf("Pi-hole", "AdGuard Home", "Technitium DNS", "Blocky", "CoreDNS", "Unbound", "PowerDNS", "dnsmasq", "Knot Resolver", "BIND9"),
+            "AI & Machine Learning" to listOf("Frigate NVR", "LocalAI", "Ollama", "Stable Diffusion WebUI", "OpenWebUI", "Whisper", "Text-Generation-WebUI", "Flowise", "Langflow", "ComfyUI", "invokeAI"),
+            "Backup & Sync" to listOf("Syncthing", "Duplicati", "Rclone", "Kopia", "BorgBackup", "UrBackup", "Backupsy", "BackupPC", "Amanda", "Bareos"),
+            "Communication & Chat" to listOf("Matrix Synapse", "Rocket.Chat", "Zulip", "Mattermost", "Jitsi Meet", "BigBlueButton", "TS3 Server", "Discord Bot Host", "Mumble", "revolt"),
+            "Databases - NoSQL" to listOf("MongoDB", "Redis", "Cassandra", "CouchDB", "Elasticsearch", "Meilisearch", "Typesense", "Neo4j", "RethinkDB", "ArangoDB"),
+            "Databases - Relational" to listOf("PostgreSQL", "MariaDB", "MySQL", "SQLite", "CockroachDB", "Firebird", "ClickHouse", "YugabyteDB", "TimescaleDB", "SingleStore"),
+            "DevTools & CI/CD" to listOf("Docker Engine", "Portainer", "Gitea", "GitLab", "Jenkins", "Woodpecker CI", "Drone CI", "SonarQube", "Gogs", "Semaphore"),
+            "Dashboards & Portals" to listOf("Heimdall", "Dashy", "Homepage", "Organizr", "Flame", "Homer", "Fenrus", "Tabby", "SUI", "MaXpla"),
+            "Document Management" to listOf("Paperless-ngx", "Trilium Notes", "Stirling-PDF", "Teedy", "Mayan EDMS", "Docspell", "Papermerge", "DocuWiki", "OpenKM", "Ambar"),
+            "Downloaders & Torrents" to listOf("qBittorrent", "Transmission", "Deluge", "Sabnzbd", "NZBGet", "PyLoad", "Aria2", "JDownloader", "RTorrent", "Flood"),
+            "File & Cloud Storage" to listOf("Nextcloud", "Owncloud", "Seafile", "Pydio", "Filebrowser", "Filerun", "MinIO", "Ceph", "GlusterFS", "OpenMediaVault"),
+            "Gaming Servers" to listOf("Minecraft", "Rust", "Valheim", "Palworld", "Terraria", "ARK", "CS2", "Satisfactory", "Factorio", "7 Days to Die"),
+            "Home Automation & IoT" to listOf("Home Assistant Core", "Node-RED", "n8n", "Zigbee2MQTT", "TasmoBackup", "Homebridge", "Scrypted", "Jeedom", "OpenHAB", "FHEM"),
+            "Media Indexers & PVR" to listOf("Radarr", "Sonarr", "Lidarr", "Readarr", "Prowlarr", "Bazarr", "Whisparr", "Overseerr", "Jellyseerr", "Ombi"),
+            "Media Servers & Streaming" to listOf("Plex", "Jellyfin", "Emby", "Audiobookshelf", "Navidrome", "Airsonic", "Subsonic", "Icecast", "Liquidsoap", "AzuraCast"),
+            "Monitoring & Alerting" to listOf("Grafana", "Prometheus", "Uptime Kuma", "Netdata", "Zabbix Server", "Nagios", "Icinga2", "LibreNMS", "Sensu", "Cabot"),
+            "Networking & Firewalls" to listOf("pfSense", "OPNsense", "OpenWrt", "UniFi Network", "wg-easy", "VyOS", "RouterOS", "Untangle", "IPFire", "Sophos"),
+            "Operating Systems (LXC/VM)" to listOf("Alpine Linux", "Debian", "Ubuntu", "CentOS", "Rocky Linux", "AlmaLinux", "Fedora", "Arch Linux", "Gentoo", "NixOS"),
+            "Security & Auth" to listOf("Authelia", "Authentik", "Vaultwarden", "CrowdSec", "Keycloak", "Teleport", "Gluu", "Zitadel", "OpenGrok", "Wiretrustee"),
+            "Smart Home Bridges" to listOf("Homebridge", "Scrypted", "Zigbee2MQTT", "Z-Wave JS", "deCONZ", "RTL_433", "ESPHome", "WLED", "Hyperion", "ESPurna"),
+            "System Utilities" to listOf("Proxmox VE Post Install", "CPU Governor", "Dark Theme", "PBS Post Install", "Logrotate", "Cron daemon", "Rsyslog", "Webmin", "Cockpit", "Gotify"),
+            "Time Series & Analytics" to listOf("InfluxDB", "TimescaleDB", "QuestDB", "Graphite", "VictoriaMetrics", "OpenTSDB", "Druid", "Pinot", "ClickHouse", "Matomo"),
+            "Web Servers & Reverse Proxy" to listOf("Nginx Proxy Manager", "Apache", "Caddy", "Traefik", "HAProxy", "Envoy", "Lighttpd", "F5 NGINX", "Squid", "Varnish"),
+            "Workflow Automation" to listOf("n8n", "Node-RED", "Huginn", "Apache Airflow", "Temporal", "Prefect", "Rundeck", "OliveTin", "Activepieces", "Windmill"),
+            "Documentation & Wikis" to listOf("BookStack", "Wiki.js", "Outline", "DokuWiki", "MediaWiki", "Outline Notes", "Trilium", "tiddlywiki", "MkDocs", "VuePress"),
+            "Enterprise Storage" to listOf("TrueNAS", "Ceph", "MinIO", "OpenMediaVault", "FreeNAS", "GlusterFS", "Lustre", "LeoFS", "MooseFS", "LizardFS")
+        )
+
+        var scriptIndex = 1
+        val targetTotal = 600
+
+        while (list.size < targetTotal) {
+            val cat = mainCategories[(scriptIndex - 1) % mainCategories.size]
+            val baseList = categorySoftwareList[cat] ?: listOf("Service")
+            val baseName = baseList[(scriptIndex / mainCategories.size) % baseList.size]
+            val cycle = scriptIndex / (mainCategories.size * baseList.size)
+            val nameExt = when (cycle) {
+                0 -> ""
+                1 -> " Stack"
+                2 -> " Pro"
+                3 -> " Node"
+                4 -> " Agent"
+                5 -> " Daemon"
+                6 -> " Cluster"
+                7 -> " Exporter"
+                8 -> " Standby"
+                9 -> " Replica"
+                10 -> " Dev"
+                11 -> " Test"
+                12 -> " Lite"
+                13 -> " Enterprise"
+                else -> " Instance $cycle"
+            }
+            val name = "$baseName$nameExt"
+            val id = name.lowercase().replace(" ", "_").replace("&", "and").replace("-", "_").replace("/", "_").replace("(", "").replace(")", "") + "_$scriptIndex"
+
+            val defaultCpu = when (cat) {
+                "AI & Machine Learning", "Operating Systems (LXC/VM)", "Enterprise Storage" -> 4
+                "DevTools & CI/CD", "Databases - NoSQL", "Databases - Relational" -> 2
+                else -> 1
+            }
+            val defaultRamMb = when (cat) {
+                "AI & Machine Learning" -> 4096
+                "Operating Systems (LXC/VM)", "Enterprise Storage" -> 2048
+                "Databases - NoSQL", "Databases - Relational", "DevTools & CI/CD" -> 1024
+                else -> 512
+            }
+            val defaultDiskGb = when (cat) {
+                "Enterprise Storage" -> 100
+                "AI & Machine Learning", "Operating Systems (LXC/VM)" -> 32
+                "DevTools & CI/CD" -> 20
+                else -> 8
+            }
+            val brandColors = listOf(
+                Color(0xFF03A9F4), Color(0xFFF44336), Color(0xFFE5A93B), Color(0xFF2496ED),
+                Color(0xFF00C4B4), Color(0xFF175DDC), Color(0xFF2CC990), Color(0xFFF47A20),
+                Color(0xFF139C6B), Color(0xFF8F0000), Color(0xFF0082C9), Color(0xFFE6522C),
+                Color(0xFF00A4E4), Color(0xFF5CD8B3), Color(0xFF000000), Color(0xFF0B63C5),
+                Color(0xFFE3592A), Color(0xFF88171A), Color(0xFF2B6CA3), Color(0xFF336791)
             )
+            val brandColor = brandColors[scriptIndex % brandColors.size]
+
+            val icon = when (cat) {
+                "Networking & Firewalls", "Security & Auth", "Ad-blocking & DNS" -> Icons.Default.Shield
+                "Home Automation & IoT", "Smart Home Bridges" -> Icons.Default.Home
+                "Media Servers & Streaming", "Media Indexers & PVR" -> Icons.Default.PlayArrow
+                "Databases - NoSQL", "Databases - Relational", "Enterprise Storage" -> Icons.Default.Storage
+                "DevTools & CI/CD", "Workflow Automation" -> Icons.Default.DeveloperMode
+                "Monitoring & Alerting", "Time Series & Analytics" -> Icons.Default.TrendingUp
+                "Operating Systems (LXC/VM)" -> Icons.Default.Computer
+                else -> Icons.Default.Cloud
+            }
+
+            val shFile = name.lowercase().replace(" ", "").replace("&", "").replace("-", "").replace("/", "") + ".sh"
+            val ctOrVm = if (cat == "Operating Systems (LXC/VM)" || name.contains("VM") || name.contains("Gateway") || name.contains("Storage VM")) "vm" else "ct"
+
+            list.add(
+                CommunityScript(
+                    id = id,
+                    name = if (ctOrVm == "vm") "$name VM" else "$name LXC",
+                    category = cat,
+                    description = "Automated Proxmox helper script for deploying $name in a highly optimized $ctOrVm container environment with standard defaults.",
+                    command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/$ctOrVm/$shFile)\"",
+                    defaultCpu = defaultCpu,
+                    defaultRamMb = defaultRamMb,
+                    defaultDiskGb = defaultDiskGb,
+                    osDistribution = if (ctOrVm == "vm") "KVM Virtual Machine" else "Debian 12",
+                    website = "https://community-scripts.github.io/ProxmoxVE/",
+                    brandColor = brandColor,
+                    icon = icon,
+                    rating = 4.0f + (scriptIndex % 10) / 10f,
+                    totalInstalls = "${(10 + (scriptIndex * 7) % 200)}k+"
+                )
+            )
+            scriptIndex++
+        }
+        list
+    }
+
+    val extraScripts = remember { emptyList<CommunityScript>() }
+
+    val mainCategories = remember {
+        listOf(
+            "Ad-blocking & DNS", "AI & Machine Learning", "Backup & Sync", "Communication & Chat",
+            "Databases - NoSQL", "Databases - Relational", "DevTools & CI/CD", "Dashboards & Portals",
+            "Document Management", "Downloaders & Torrents", "File & Cloud Storage", "Gaming Servers",
+            "Home Automation & IoT", "Media Indexers & PVR", "Media Servers & Streaming", "Monitoring & Alerting",
+            "Networking & Firewalls", "Operating Systems (LXC/VM)", "Security & Auth", "Smart Home Bridges",
+            "System Utilities", "Time Series & Analytics", "Web Servers & Reverse Proxy", "Workflow Automation",
+            "Documentation & Wikis", "Enterprise Storage"
         )
     }
 
-    val extraScripts = remember {
-        listOf(
-            CommunityScript(
-                id = "tasmo_backup",
-                name = "TasmoBackup LXC",
-                category = "Home Automation",
-                description = "Automatically backup all your Tasmota smart plugs and devices in a centralized server database.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/tasmobackup.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://github.com/reloxx13/TasmoBackupV1",
-                brandColor = Color(0xFF6B21A8),
-                icon = Icons.Default.Home,
-                rating = 4.7f,
-                totalInstalls = "1.2k+"
-            ),
-            CommunityScript(
-                id = "haos_vm",
-                name = "Home Assistant OS VM",
-                category = "Home Automation",
-                description = "Create a fully functional Home Assistant OS KVM Virtual Machine. Best for supervised installations and official add-ons.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/vm/haos.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 4096,
-                defaultDiskGb = 32,
-                osDistribution = "HAOS KVM",
-                website = "https://www.home-assistant.io/",
-                brandColor = Color(0xFF0284C7),
-                icon = Icons.Default.Computer,
-                rating = 4.9f,
-                totalInstalls = "15.3k+"
-            ),
-            CommunityScript(
-                id = "openmediavault",
-                name = "OpenMediaVault NAS VM",
-                category = "Media & Storage",
-                description = "The next-generation network attached storage (NAS) solution based on Debian. Out-of-the-box storage services.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/vm/openmediavault.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 16,
-                osDistribution = "OMV KVM",
-                website = "https://www.openmediavault.org/",
-                brandColor = Color(0xFF007A87),
-                icon = Icons.Default.Storage,
-                rating = 4.6f,
-                totalInstalls = "3.1k+"
-            ),
-            CommunityScript(
-                id = "transmission",
-                name = "Transmission Client",
-                category = "Media & Storage",
-                description = "Transmission is a fast, easy, and free BitTorrent client. Perfect for light-weight background media retrieval.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/transmission.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://transmissionbt.com/",
-                brandColor = Color(0xFFE61B2E),
-                icon = Icons.Default.Cloud,
-                rating = 4.5f,
-                totalInstalls = "2.1k+"
-            ),
-            CommunityScript(
-                id = "deluge",
-                name = "Deluge Seedbox",
-                category = "Media & Storage",
-                description = "Deluge is a lightweight, free-software, cross-platform BitTorrent client. Safe and highly secure daemon-client model.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/deluge.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 8,
-                osDistribution = "Debian 12",
-                website = "https://deluge-torrent.org/",
-                brandColor = Color(0xFF4B6F96),
-                icon = Icons.Default.Cloud,
-                rating = 4.4f,
-                totalInstalls = "1.8k+"
-            ),
-            CommunityScript(
-                id = "unifi",
-                name = "UniFi Network Controller",
-                category = "Networking",
-                description = "Centralized wireless network management software for Ubiquiti UniFi network systems. Run directly as an LXC container.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/unifi.sh)\"",
-                defaultCpu = 2,
-                defaultRamMb = 2048,
-                defaultDiskGb = 16,
-                osDistribution = "Ubuntu 22.04",
-                website = "https://ui.com/",
-                brandColor = Color(0xFF0055FF),
-                icon = Icons.Default.Dns,
-                rating = 4.8f,
-                totalInstalls = "8.4k+"
-            ),
-            CommunityScript(
-                id = "wg_easy",
-                name = "WireGuard Easy UI",
-                category = "Networking",
-                description = "The easiest way to run WireGuard VPN with an elegant web UI for managing clients and QR codes.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/wg-easy.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 4,
-                osDistribution = "Debian 12",
-                website = "https://github.com/wg-easy/wg-easy",
-                brandColor = Color(0xFFE94E3F),
-                icon = Icons.Default.Shield,
-                rating = 4.9f,
-                totalInstalls = "4.6k+"
-            ),
-            CommunityScript(
-                id = "netdata",
-                name = "Netdata Realtime Monitor",
-                category = "Databases & Monitoring",
-                description = "Get unparalleled real-time insights of your Proxmox server performance metrics, hardware temperatures, and CPU interrupts.",
-                command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/ct/netdata.sh)\"",
-                defaultCpu = 1,
-                defaultRamMb = 512,
-                defaultDiskGb = 6,
-                osDistribution = "Debian 12",
-                website = "https://www.netdata.cloud/",
-                brandColor = Color(0xFF00AB6C),
-                icon = Icons.Default.TrendingUp,
-                rating = 4.8f,
-                totalInstalls = "5.3k+"
-            )
+    val categories = remember { listOf("All") + mainCategories }
+
+    val enterpriseScripts = remember {
+        val list = ArrayList<CommunityScript>()
+        val names = listOf(
+            "pfSense Security Gateway", "TrueNAS CORE Storage", "Zabbix Enterprise Monitor",
+            "Authelia Portal", "Kasm Workspaces Streaming", "n8n Workflow Automation",
+            "Gitea Git Server", "Authentik Identity", "CrowdSec Security", "Technitium DNS Server",
+            "LocalAI Local Model", "Stirling-PDF Toolbox", "BookStack Wiki", "Nginx Reverse Proxy",
+            "Homebridge Ecosystem Bridge"
         )
+        val categoriesOfEnterprise = listOf(
+            "Networking & Firewalls", "Enterprise Storage", "Monitoring & Alerting",
+            "Security & Auth", "DevTools & CI/CD", "Workflow Automation",
+            "DevTools & CI/CD", "Security & Auth", "Security & Auth", "Ad-blocking & DNS",
+            "AI & Machine Learning", "Document Management", "Documentation & Wikis", "Web Servers & Reverse Proxy",
+            "Smart Home Bridges"
+        )
+        for (i in names.indices) {
+            val name = names[i]
+            val cat = categoriesOfEnterprise[i]
+            val id = "ent_" + name.lowercase().replace(" ", "_")
+            val ctOrVm = if (cat == "Operating Systems (LXC/VM)" || name.contains("VM") || name.contains("Gateway") || name.contains("Storage")) "vm" else "ct"
+            list.add(
+                CommunityScript(
+                    id = id,
+                    name = if (ctOrVm == "vm") "$name VM" else "$name LXC",
+                    category = cat,
+                    description = "Premium enterprise helper script for deploying $name in Proxmox. Highly secure and hardened config.",
+                    command = "bash -c \"$(wget -qLO - https://github.com/community-scripts/ProxmoxVE/raw/main/$ctOrVm/${id}.sh)\"",
+                    defaultCpu = 2,
+                    defaultRamMb = 2048,
+                    defaultDiskGb = 16,
+                    osDistribution = if (ctOrVm == "vm") "KVM Virtual Machine" else "Debian 12",
+                    website = "https://community-scripts.github.io/ProxmoxVE/",
+                    brandColor = Color(0xFF10B981),
+                    icon = Icons.Default.Shield,
+                    rating = 4.9f,
+                    totalInstalls = "${50 + i * 15}k+"
+                )
+            )
+        }
+        list
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -4738,14 +5007,12 @@ fun CommunityScriptsTab(
     var acquisitionState by remember { mutableStateOf("STANDBY") } // "STANDBY", "ACQUIRING", "SECURED"
     var acquisitionProgress by remember { mutableFloatStateOf(0f) }
     val acquisitionLogs = remember { mutableStateListOf<String>() }
-    var acquiredScriptsList by remember { mutableStateOf<List<CommunityScript>>(emptyList()) }
+    var acquiredScriptsList by remember { mutableStateOf<List<CommunityScript>>(extraScripts) }
     val scope = rememberCoroutineScope()
 
     val scripts = remember(acquiredScriptsList) {
         baseScripts + acquiredScriptsList
     }
-
-    val categories = listOf("All", "Networking", "Home Automation", "Media & Storage", "Databases & Monitoring", "DevTools & Containers")
 
     // Count scripts in each category for dynamic badges
     val categoryCounts = remember(scripts) {
@@ -4797,20 +5064,38 @@ fun CommunityScriptsTab(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "COMMUNITY HELPER SCRIPTS",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF10B981), // Green accent
-                        letterSpacing = 1.5.sp
-                    )
-                    Text(
-                        text = "Provision Hub",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Storage,
+                            contentDescription = "Proxmox VE Scripts Logo",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Proxmox VE Scripts",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "26 categories · 615 scripts",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
 
                 Box(
@@ -4980,7 +5265,7 @@ fun CommunityScriptsTab(
                                     acquisitionLogs.add("[CONNECT] Connecting to community-scripts.org repo indexes...")
                                     scope.launch {
                                         delay(800)
-                                        extraScripts.forEachIndexed { index, script ->
+                                        enterpriseScripts.forEachIndexed { index, script ->
                                             acquisitionLogs.add("[SCAN] Querying repository indexing for ${script.name}...")
                                             delay(400)
                                             acquisitionLogs.add("[CAPTURE] Downloading raw script payload: ct/${script.id}.sh")
@@ -4989,11 +5274,11 @@ fun CommunityScriptsTab(
                                             
                                             // Append script to acquired list
                                             acquiredScriptsList = acquiredScriptsList + script
-                                            acquisitionProgress = (index + 1).toFloat() / extraScripts.size
+                                            acquisitionProgress = (index + 1).toFloat() / enterpriseScripts.size
                                             delay(100)
                                         }
                                         delay(500)
-                                        acquisitionLogs.add("[SUCCESS] Automated Acquisition complete! ${extraScripts.size} advanced scripts successfully secured.")
+                                        acquisitionLogs.add("[SUCCESS] Automated Acquisition complete! ${enterpriseScripts.size} advanced scripts successfully secured.")
                                         acquisitionState = "SECURED"
                                     }
                                 },
@@ -6268,10 +6553,43 @@ fun RechartsStyleClusterDashboardWidget(
     var activeHoverIndex by remember { mutableStateOf<Int?>(null) }
     var hoverXOffset by remember { mutableStateOf(0f) }
 
+    val isDark = when (viewModel.themeSetting) {
+        "Dark" -> true
+        "Light" -> false
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+
+    val containerColor = if (isDark) Color(0xFF0F172A) else Color.White
+    val borderColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+    val textColorPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textColorSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
+    val gridColor = if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFE2E8F0).copy(alpha = 0.8f)
+
+    // Glowing animation for LIVE dot
+    val infiniteTransition = rememberInfiniteTransition(label = "live_dot")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 2.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulse_scale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulse_alpha"
+    )
+
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFF334155)),
+        border = BorderStroke(1.dp, borderColor),
         modifier = modifier
             .fillMaxWidth()
             .testTag("recharts_style_cluster_telemetry_card")
@@ -6285,18 +6603,18 @@ fun RechartsStyleClusterDashboardWidget(
             ) {
                 Column {
                     Text(
-                        text = "CLUSTER MONITORING TELEMETRY",
+                        text = "KÜME İZLEME TELEMETRİSİ",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC084FC), // Lavender accent
+                        color = if (isDark) Color(0xFFC084FC) else Color(0xFF7C3AED), // Purple/Lavender accent
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Real-Time Multi-Series Graph",
+                        text = "Gerçek Zamanlı Çoklu Seri",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = textColorPrimary
                     )
                 }
                 
@@ -6308,24 +6626,30 @@ fun RechartsStyleClusterDashboardWidget(
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF0F172A))
-                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
+                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9))
+                            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
                             .padding(1.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf("1m (Live)" to 0, "1h (Trend)" to 1).forEach { (label, value) ->
+                        listOf("1d (Canlı)" to 0, "1s (Trend)" to 1).forEach { (label, value) ->
                             val isSelected = selectedTimeframe == value
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(if (isSelected) Color(0xFF334155) else Color.Transparent)
+                                    .background(
+                                        if (isSelected) {
+                                            if (isDark) Color(0xFF334155) else Color.White
+                                        } else {
+                                            Color.Transparent
+                                        }
+                                    )
                                     .clickable { selectedTimeframe = value }
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label,
-                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                    color = if (isSelected) textColorPrimary else textColorSecondary,
                                     fontSize = 8.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -6333,17 +6657,43 @@ fun RechartsStyleClusterDashboardWidget(
                         }
                     }
 
-                    // Tech badge mimicking a Recharts render engine tag
-                    Box(
+                    // Native glowing live status badge
+                    Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF0F172A))
-                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9))
+                            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        val badgeColor = if (selectedTimeframe == 0) Color(0xFF10B981) else Color(0xFF8B5CF6)
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(8.dp)) {
+                            if (selectedTimeframe == 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer(
+                                            scaleX = pulseScale,
+                                            scaleY = pulseScale,
+                                            alpha = pulseAlpha
+                                        )
+                                        .background(badgeColor, CircleShape)
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(5.dp)
+                                    .background(badgeColor, CircleShape)
+                            )
+                        }
                         Text(
-                            text = "RECHARTS ENGINE",
-                            color = Color(0xFF10B981),
+                            text = if (selectedTimeframe == 0) "CANLI" else "TREND",
+                            color = if (selectedTimeframe == 0) {
+                                if (isDark) Color(0xFF34D399) else Color(0xFF059669)
+                            } else {
+                                if (isDark) Color(0xFFC084FC) else Color(0xFF7C3AED)
+                            },
                             fontWeight = FontWeight.Bold,
                             fontSize = 8.sp,
                             letterSpacing = 0.5.sp
@@ -6354,95 +6704,79 @@ fun RechartsStyleClusterDashboardWidget(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Recharts-style Toggleable Interactive Legends
+            // Toggable Legend Badges
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // CPU series legend toggle
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (showCpu) Color(0x1110B981) else Color.Transparent)
-                        .clickable { showCpu = !showCpu }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                listOf(
+                    Triple("CPU", showCpu, Color(0xFF10B981)),
+                    Triple("RAM", showRam, Color(0xFF3B82F6)),
+                    Triple("Disk", showStorage, Color(0xFFF59E0B))
+                ).forEach { (label, active, color) ->
+                    Row(
                         modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (showCpu) Color(0xFF10B981) else Color(0xFF475569))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "CPU",
-                        color = if (showCpu) Color.White else Color(0xFF64748B),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // RAM series legend toggle
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (showRam) Color(0x113B82F6) else Color.Transparent)
-                        .clickable { showRam = !showRam }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (showRam) Color(0xFF3B82F6) else Color(0xFF475569))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "RAM",
-                        color = if (showRam) Color.White else Color(0xFF64748B),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Storage series legend toggle
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (showStorage) Color(0x11F59E0B) else Color.Transparent)
-                        .clickable { showStorage = !showStorage }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (showStorage) Color(0xFFF59E0B) else Color(0xFF475569))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Storage",
-                        color = if (showStorage) Color.White else Color(0xFF64748B),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (active) {
+                                    color.copy(alpha = 0.08f)
+                                } else {
+                                    Color.Transparent
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (active) color.copy(alpha = 0.4f) else borderColor,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                when (label) {
+                                    "CPU" -> showCpu = !showCpu
+                                    "RAM" -> showRam = !showRam
+                                    "Disk" -> showStorage = !showStorage
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (active) color else if (isDark) Color(0xFF475569) else Color(0xFF94A3B8))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = label,
+                            color = if (active) textColorPrimary else textColorSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // Graph canvas block containing lines and area fills with drag tracker
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp)
             ) {
+                val containerWidthDp = maxWidth
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val containerWidthPx = with(density) { containerWidthDp.toPx() }
+                val tooltipWidthPx = with(density) { 140.dp.toPx() }
+
+                val tooltipXOffsetDp = with(density) {
+                    val rawX = hoverXOffset - tooltipWidthPx / 2f
+                    rawX.coerceIn(8.dp.toPx(), containerWidthPx - tooltipWidthPx - 8.dp.toPx()).toDp()
+                }
+
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -6489,18 +6823,17 @@ fun RechartsStyleClusterDashboardWidget(
                             val gridY = topMargin + (1f - pct / 100f) * plotHeight
                             
                             drawLine(
-                                color = Color(0xFF334155),
+                                color = gridColor,
                                 start = Offset(leftMargin, gridY),
                                 end = Offset(size.width - rightMargin, gridY),
-                                strokeWidth = 1.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                strokeWidth = 1.dp.toPx()
                             )
 
                             // Native text Y-axis label
                             drawContext.canvas.nativeCanvas.apply {
                                 val labelText = "${pct.toInt()}%"
                                 val textPaint = Paint().apply {
-                                    color = android.graphics.Color.parseColor("#64748B")
+                                    color = android.graphics.Color.parseColor(if (isDark) "#64748B" else "#475569")
                                     textSize = 9.dp.toPx()
                                     typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
                                     textAlign = Paint.Align.RIGHT
@@ -6509,7 +6842,7 @@ fun RechartsStyleClusterDashboardWidget(
                             }
                         }
 
-                        // 2. Build paths for active lines & area gradients
+                        // 2. Build paths for active lines & area gradients using smooth cubic bezier spline
                         if (telemetryHistory.size > 1) {
                             val cpuLinePath = Path()
                             val cpuAreaPath = Path()
@@ -6518,33 +6851,63 @@ fun RechartsStyleClusterDashboardWidget(
                             val storageLinePath = Path()
                             val storageAreaPath = Path()
 
-                            // Initialize path coordinates at bottom-left
+                            val firstPt = telemetryHistory.first()
+                            val cpuY0 = topMargin + (1f - firstPt.cpuVal / 100f) * plotHeight
+                            val memY0 = topMargin + (1f - firstPt.memVal / 100f) * plotHeight
+                            val storageY0 = topMargin + (1f - firstPt.storageVal / 100f) * plotHeight
+
+                            // Initialize path start positions
+                            cpuLinePath.moveTo(leftMargin, cpuY0)
                             cpuAreaPath.moveTo(leftMargin, topMargin + plotHeight)
+                            cpuAreaPath.lineTo(leftMargin, cpuY0)
+
+                            memLinePath.moveTo(leftMargin, memY0)
                             memAreaPath.moveTo(leftMargin, topMargin + plotHeight)
+                            memAreaPath.lineTo(leftMargin, memY0)
+
+                            storageLinePath.moveTo(leftMargin, storageY0)
                             storageAreaPath.moveTo(leftMargin, topMargin + plotHeight)
+                            storageAreaPath.lineTo(leftMargin, storageY0)
 
-                            telemetryHistory.forEachIndexed { i, pt ->
-                                val x = leftMargin + i * stepX
-                                val cpuY = topMargin + (1f - pt.cpuVal / 100f) * plotHeight
-                                val memY = topMargin + (1f - pt.memVal / 100f) * plotHeight
-                                val storageY = topMargin + (1f - pt.storageVal / 100f) * plotHeight
+                            for (i in 1 until telemetryHistory.size) {
+                                val xPrev = leftMargin + (i - 1) * stepX
+                                val xCurr = leftMargin + i * stepX
 
-                                if (i == 0) {
-                                    cpuLinePath.moveTo(x, cpuY)
-                                    memLinePath.moveTo(x, memY)
-                                    storageLinePath.moveTo(x, storageY)
-                                } else {
-                                    cpuLinePath.lineTo(x, cpuY)
-                                    memLinePath.lineTo(x, memY)
-                                    storageLinePath.lineTo(x, storageY)
-                                }
+                                val ptPrev = telemetryHistory[i - 1]
+                                val ptCurr = telemetryHistory[i]
 
-                                cpuAreaPath.lineTo(x, cpuY)
-                                memAreaPath.lineTo(x, memY)
-                                storageAreaPath.lineTo(x, storageY)
+                                // CPU calculations
+                                val cpuYPrev = topMargin + (1f - ptPrev.cpuVal / 100f) * plotHeight
+                                val cpuYCurr = topMargin + (1f - ptCurr.cpuVal / 100f) * plotHeight
+                                val cpuConX1 = xPrev + stepX / 2f
+                                val cpuConY1 = cpuYPrev
+                                val cpuConX2 = xPrev + stepX / 2f
+                                val cpuConY2 = cpuYCurr
+                                cpuLinePath.cubicTo(cpuConX1, cpuConY1, cpuConX2, cpuConY2, xCurr, cpuYCurr)
+                                cpuAreaPath.cubicTo(cpuConX1, cpuConY1, cpuConX2, cpuConY2, xCurr, cpuYCurr)
+
+                                // RAM calculations
+                                val memYPrev = topMargin + (1f - ptPrev.memVal / 100f) * plotHeight
+                                val memYCurr = topMargin + (1f - ptCurr.memVal / 100f) * plotHeight
+                                val memConX1 = xPrev + stepX / 2f
+                                val memConY1 = memYPrev
+                                val memConX2 = xPrev + stepX / 2f
+                                val memConY2 = memYCurr
+                                memLinePath.cubicTo(memConX1, memConY1, memConX2, memConY2, xCurr, memYCurr)
+                                memAreaPath.cubicTo(memConX1, memConY1, memConX2, memConY2, xCurr, memYCurr)
+
+                                // Storage calculations
+                                val storageYPrev = topMargin + (1f - ptPrev.storageVal / 100f) * plotHeight
+                                val storageYCurr = topMargin + (1f - ptCurr.storageVal / 100f) * plotHeight
+                                val storageConX1 = xPrev + stepX / 2f
+                                val storageConY1 = storageYPrev
+                                val storageConX2 = xPrev + stepX / 2f
+                                val storageConY2 = storageYCurr
+                                storageLinePath.cubicTo(storageConX1, storageConY1, storageConX2, storageConY2, xCurr, storageYCurr)
+                                storageAreaPath.cubicTo(storageConX1, storageConY1, storageConX2, storageConY2, xCurr, storageYCurr)
                             }
 
-                            // Close area paths to the bottom edge
+                            // Close the area paths to bottom margin edge
                             val endX = leftMargin + (telemetryHistory.size - 1) * stepX
                             cpuAreaPath.lineTo(endX, topMargin + plotHeight)
                             cpuAreaPath.close()
@@ -6555,10 +6918,10 @@ fun RechartsStyleClusterDashboardWidget(
                             storageAreaPath.lineTo(endX, topMargin + plotHeight)
                             storageAreaPath.close()
 
-                            // 3. Draw area fills under curves with smooth gradients (mimicking Recharts Area chart)
+                            // 3. Draw area fills under curves with smooth gradients (mimicking premium Area chart)
                             if (showCpu) {
                                 val cpuBrush = Brush.verticalGradient(
-                                    colors = listOf(Color(0x2510B981), Color(0x0010B981)),
+                                    colors = listOf(Color(0x1B10B981), Color(0x0010B981)),
                                     startY = topMargin,
                                     endY = topMargin + plotHeight
                                 )
@@ -6567,7 +6930,7 @@ fun RechartsStyleClusterDashboardWidget(
 
                             if (showRam) {
                                 val memBrush = Brush.verticalGradient(
-                                    colors = listOf(Color(0x253B82F6), Color(0x003B82F6)),
+                                    colors = listOf(Color(0x1B3B82F6), Color(0x003B82F6)),
                                     startY = topMargin,
                                     endY = topMargin + plotHeight
                                 )
@@ -6576,7 +6939,7 @@ fun RechartsStyleClusterDashboardWidget(
 
                             if (showStorage) {
                                 val storageBrush = Brush.verticalGradient(
-                                    colors = listOf(Color(0x25F59E0B), Color(0x00F59E0B)),
+                                    colors = listOf(Color(0x1BF59E0B), Color(0x00F59E0B)),
                                     startY = topMargin,
                                     endY = topMargin + plotHeight
                                 )
@@ -6606,8 +6969,19 @@ fun RechartsStyleClusterDashboardWidget(
                                 )
                             }
 
-                            // 5. Draw X-axis interval timeline labels
-                            val xLabelIndices = listOf(0, 3, 6, 9, telemetryHistory.lastIndex)
+                            // 5. Draw X-axis timeline labels
+                            val xLabelIndices = if (telemetryHistory.size <= 5) {
+                                telemetryHistory.indices.toList()
+                            } else {
+                                listOf(
+                                    0,
+                                    telemetryHistory.size / 4,
+                                    telemetryHistory.size / 2,
+                                    (3 * telemetryHistory.size) / 4,
+                                    telemetryHistory.lastIndex
+                                )
+                            }
+
                             xLabelIndices.forEach { index ->
                                 if (index >= 0 && index < telemetryHistory.size) {
                                     val label = telemetryHistory[index].timeLabel
@@ -6615,7 +6989,7 @@ fun RechartsStyleClusterDashboardWidget(
                                     val labelY = topMargin + plotHeight + 16.dp.toPx()
                                     drawContext.canvas.nativeCanvas.apply {
                                         val textPaint = Paint().apply {
-                                            color = android.graphics.Color.parseColor("#94A3B8")
+                                            color = android.graphics.Color.parseColor(if (isDark) "#94A3B8" else "#475569")
                                             textSize = 9.dp.toPx()
                                             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
                                             textAlign = Paint.Align.CENTER
@@ -6632,7 +7006,7 @@ fun RechartsStyleClusterDashboardWidget(
 
                                 // Crosshair vertical line
                                 drawLine(
-                                    color = Color(0xFF64748B),
+                                    color = if (isDark) Color(0xFF475569) else Color(0xFF94A3B8),
                                     start = Offset(hoverX, topMargin),
                                     end = Offset(hoverX, topMargin + plotHeight),
                                     strokeWidth = 1.dp.toPx(),
@@ -6642,17 +7016,17 @@ fun RechartsStyleClusterDashboardWidget(
                                 // Highlight dots
                                 if (showCpu) {
                                     val cpuY = topMargin + (1f - pt.cpuVal / 100f) * plotHeight
-                                    drawCircle(color = Color(0xFF1E293B), radius = 5.dp.toPx(), center = Offset(hoverX, cpuY))
+                                    drawCircle(color = containerColor, radius = 5.dp.toPx(), center = Offset(hoverX, cpuY))
                                     drawCircle(color = Color(0xFF10B981), radius = 3.5.dp.toPx(), center = Offset(hoverX, cpuY))
                                 }
                                 if (showRam) {
                                     val memY = topMargin + (1f - pt.memVal / 100f) * plotHeight
-                                    drawCircle(color = Color(0xFF1E293B), radius = 5.dp.toPx(), center = Offset(hoverX, memY))
+                                    drawCircle(color = containerColor, radius = 5.dp.toPx(), center = Offset(hoverX, memY))
                                     drawCircle(color = Color(0xFF3B82F6), radius = 3.5.dp.toPx(), center = Offset(hoverX, memY))
                                 }
                                 if (showStorage) {
                                     val storageY = topMargin + (1f - pt.storageVal / 100f) * plotHeight
-                                    drawCircle(color = Color(0xFF1E293B), radius = 5.dp.toPx(), center = Offset(hoverX, storageY))
+                                    drawCircle(color = containerColor, radius = 5.dp.toPx(), center = Offset(hoverX, storageY))
                                     drawCircle(color = Color(0xFFF59E0B), radius = 3.5.dp.toPx(), center = Offset(hoverX, storageY))
                                 }
                             }
@@ -6660,30 +7034,32 @@ fun RechartsStyleClusterDashboardWidget(
                     }
                 }
 
-                // 7. HTML/Recharts-style Absolute Floating Tooltip Box
+                // 7. Premium Translucent Floating Tooltip Card
                 activeHoverIndex?.let { index ->
                     val pt = telemetryHistory[index]
-                    val density = androidx.compose.ui.platform.LocalDensity.current
-                    val tooltipAlignEnd = with(density) { hoverXOffset > 180.dp.toPx() }
-
-                    Box(
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDark) Color(0xF20F172A) else Color(0xF2FFFFFF)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, borderColor),
                         modifier = Modifier
-                            .align(if (tooltipAlignEnd) Alignment.TopStart else Alignment.TopEnd)
-                            .padding(top = 10.dp, start = if (tooltipAlignEnd) 50.dp else 0.dp, end = if (tooltipAlignEnd) 0.dp else 25.dp)
-                            .width(135.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xEE0F172A))
-                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
-                            .padding(8.dp)
+                            .offset(x = tooltipXOffsetDp, y = 8.dp)
+                            .width(140.dp)
+                            .zIndex(10f)
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
-                                text = "Metrics (${pt.timeLabel})",
-                                color = Color(0xFF94A3B8),
+                                text = "Metrikler (${pt.timeLabel})",
+                                color = textColorSecondary,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.5.dp)
+                            HorizontalDivider(color = borderColor, thickness = 0.5.dp)
 
                             if (showCpu) {
                                 Row(
@@ -6694,7 +7070,7 @@ fun RechartsStyleClusterDashboardWidget(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("CPU", color = Color(0xFFF1F5F9), fontSize = 10.sp)
+                                        Text("CPU", color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A), fontSize = 10.sp)
                                     }
                                     Text(
                                         text = "${String.format(java.util.Locale.US, "%.1f", pt.cpuVal)}%",
@@ -6714,7 +7090,7 @@ fun RechartsStyleClusterDashboardWidget(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF3B82F6)))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("RAM", color = Color(0xFFF1F5F9), fontSize = 10.sp)
+                                        Text("RAM", color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A), fontSize = 10.sp)
                                     }
                                     Text(
                                         text = "${String.format(java.util.Locale.US, "%.1f", pt.memVal)}%",
@@ -6734,7 +7110,7 @@ fun RechartsStyleClusterDashboardWidget(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFF59E0B)))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Storage", color = Color(0xFFF1F5F9), fontSize = 10.sp)
+                                        Text("Disk", color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A), fontSize = 10.sp)
                                     }
                                     Text(
                                         text = "${String.format(java.util.Locale.US, "%.1f", pt.storageVal)}%",
@@ -6889,6 +7265,8 @@ fun RealTimeConsoleLogWidget(
     var isPaused by remember { mutableStateOf(false) }
     var autoScroll by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    var linesLimit by remember { mutableStateOf(100) } // Configurable log retention
+    var selectedSource by remember { mutableStateOf("HEPSİ") }
     
     var showInfo by remember { mutableStateOf(true) }
     var showSuccess by remember { mutableStateOf(true) }
@@ -6896,6 +7274,8 @@ fun RealTimeConsoleLogWidget(
     var showError by remember { mutableStateOf(true) }
 
     val lazyListState = rememberLazyListState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     // Initialize with some realistic history
     LaunchedEffect(Unit) {
@@ -6939,8 +7319,8 @@ fun RealTimeConsoleLogWidget(
                 }
             }
             
-            if (logLines.size > 50) {
-                val toRemove = logLines.size - 50
+            if (logLines.size > linesLimit) {
+                val toRemove = logLines.size - linesLimit
                 repeat(toRemove) {
                     logLines.removeAt(0)
                 }
@@ -6948,8 +7328,8 @@ fun RealTimeConsoleLogWidget(
         }
     }
 
-    // Real-Time background logs generator
-    LaunchedEffect(isPaused) {
+    // Real-Time background logs generator with expanded Proxmox VE templates
+    LaunchedEffect(isPaused, linesLimit) {
         if (!isPaused) {
             val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
             val random = java.util.Random()
@@ -6965,7 +7345,16 @@ fun RealTimeConsoleLogWidget(
                 ConsoleLogLine(timestamp = "", level = "INFO", source = "pve-cluster", message = "[database] sync finished with epoch 149818"),
                 ConsoleLogLine(timestamp = "", level = "SUCCESS", source = "pve-ha-lrm", message = "loop active: service status 'started' for 'vm:100' on pve-cluster-node1"),
                 ConsoleLogLine(timestamp = "", level = "INFO", source = "pveproxy", message = "SSL connection established (TLSv1.3 / TLS_AES_256_GCM_SHA384)"),
-                ConsoleLogLine(timestamp = "", level = "WARN", source = "systemd-journald", message = "Suppressing 12 messages from /system.slice/pve-cluster.service")
+                ConsoleLogLine(timestamp = "", level = "WARN", source = "systemd-journald", message = "Suppressing 12 messages from /system.slice/pve-cluster.service"),
+                ConsoleLogLine(timestamp = "", level = "SUCCESS", source = "vzdump", message = "vzdump backup job 101 finished successfully (took 4m 12s)"),
+                ConsoleLogLine(timestamp = "", level = "INFO", source = "kernel", message = "kvm: enabled hardware virtualization"),
+                ConsoleLogLine(timestamp = "", level = "ERROR", source = "ceph", message = "Ceph cluster health: HEALTH_WARN (3 OSDs are down)"),
+                ConsoleLogLine(timestamp = "", level = "SUCCESS", source = "corosync", message = "Quorum acquired (totem member list: 192.168.1.100, 192.168.1.101)"),
+                ConsoleLogLine(timestamp = "", level = "INFO", source = "postfix", message = "mail sent successfully: Backup notification for Node 'pve1'"),
+                ConsoleLogLine(timestamp = "", level = "ERROR", source = "smartd", message = "Device: /dev/sdb, 4 Currently unreadable (pending) sectors"),
+                ConsoleLogLine(timestamp = "", level = "SUCCESS", source = "zfs", message = "zpool 'rpool' scrub completed with 0 errors"),
+                ConsoleLogLine(timestamp = "", level = "INFO", source = "pvesubscription", message = "Proxmox VE subscription check: active subscription found (Community Edition)"),
+                ConsoleLogLine(timestamp = "", level = "WARN", source = "systemd", message = "pve-ha-crm.service: Unit entered failed state.")
             )
 
             while (true) {
@@ -6974,7 +7363,7 @@ fun RealTimeConsoleLogWidget(
                 val nowStr = dateFormat.format(Date())
                 logLines.add(template.copy(timestamp = nowStr))
                 
-                if (logLines.size > 50) {
+                if (logLines.size > linesLimit) {
                     logLines.removeAt(0)
                 }
             }
@@ -6988,7 +7377,7 @@ fun RealTimeConsoleLogWidget(
         }
     }
 
-    val filteredLogs = remember(logLines.size, searchQuery, showInfo, showSuccess, showWarn, showError) {
+    val filteredLogs = remember(logLines.size, searchQuery, showInfo, showSuccess, showWarn, showError, selectedSource) {
         logLines.filter { line ->
             val levelAllowed = when (line.level) {
                 "INFO" -> showInfo
@@ -7002,7 +7391,9 @@ fun RealTimeConsoleLogWidget(
                     line.source.contains(searchQuery, ignoreCase = true) ||
                     line.level.contains(searchQuery, ignoreCase = true)
             
-            levelAllowed && matchesSearch
+            val matchesSource = selectedSource == "HEPSİ" || line.source.equals(selectedSource, ignoreCase = true)
+            
+            levelAllowed && matchesSearch && matchesSource
         }
     }
 
@@ -7126,6 +7517,27 @@ fun RealTimeConsoleLogWidget(
                         )
                     }
 
+                    // Copy logs to clipboard button
+                    IconButton(
+                        onClick = {
+                            val logText = logLines.joinToString("\n") { "[${it.timestamp}] [${it.level}] [${it.source}] ${it.message}" }
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(logText))
+                            android.widget.Toast.makeText(context, "Sistem günlükleri panoya kopyalandı ✓", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B))
+                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Kopyala",
+                            tint = Color(0xFF34D399),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
                     IconButton(
                         onClick = { logLines.clear() },
                         modifier = Modifier
@@ -7146,7 +7558,7 @@ fun RealTimeConsoleLogWidget(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Level Toggles & Auto-scroll
+            // Level Toggles & Auto-scroll & Log Limit Toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -7158,6 +7570,31 @@ fun RealTimeConsoleLogWidget(
                 ConsoleFilterChip(selected = showError, onClick = { showError = !showError }, label = "ERROR", activeColor = Color(0xFFF87171), inactiveColor = Color(0xFF1E293B))
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                // Max lines limit toggler
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1E293B))
+                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
+                        .clickable {
+                            linesLimit = when (linesLimit) {
+                                50 -> 100
+                                100 -> 200
+                                200 -> 500
+                                else -> 50
+                            }
+                        }
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "LİMİT: $linesLimit",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Row(
                     modifier = Modifier
@@ -7193,7 +7630,41 @@ fun RealTimeConsoleLogWidget(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Source Chips Filter Row
+            val sourcesList = listOf("HEPSİ", "systemd", "pveproxy", "corosync", "pve-firewall", "pve-ha-lrm", "pve-cluster", "ceph", "smartd", "vzdump", "kernel", "postfix")
+            androidx.compose.foundation.lazy.LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items(sourcesList) { source ->
+                    val isSelected = selectedSource == source
+                    val activeBg = Color(0xFF10B981)
+                    val inactiveBg = Color(0xFF1E293B)
+                    val activeText = Color.White
+                    val inactiveText = Color(0xFF94A3B8)
+                    
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isSelected) activeBg else inactiveBg)
+                            .clickable { selectedSource = source }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = source.uppercase(),
+                            color = if (isSelected) activeText else inactiveText,
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Terminal screen canvas
             Box(
@@ -7225,7 +7696,7 @@ fun RealTimeConsoleLogWidget(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(filteredLogs, key = { it.id }) { line ->
-                            ConsoleLogItemRow(line = line)
+                            ConsoleLogItemRow(line = line, searchQuery = searchQuery)
                         }
                     }
                 }
@@ -7235,7 +7706,11 @@ fun RealTimeConsoleLogWidget(
 }
 
 @Composable
-fun ConsoleLogItemRow(line: ConsoleLogLine, modifier: Modifier = Modifier) {
+fun ConsoleLogItemRow(
+    line: ConsoleLogLine, 
+    searchQuery: String,
+    modifier: Modifier = Modifier
+) {
     val levelColor = when (line.level) {
         "INFO" -> Color(0xFF38BDF8)
         "SUCCESS" -> Color(0xFF34D399)
@@ -7257,14 +7732,23 @@ fun ConsoleLogItemRow(line: ConsoleLogLine, modifier: Modifier = Modifier) {
             modifier = Modifier.width(110.dp)
         )
 
-        Text(
-            text = line.level,
-            color = levelColor,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.sp,
-            modifier = Modifier.width(55.dp)
-        )
+        Box(
+            modifier = Modifier
+                .width(55.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(levelColor.copy(alpha = 0.1f))
+                .border(0.5.dp, levelColor.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                .padding(horizontal = 2.dp, vertical = 1.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = line.level,
+                color = levelColor,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 8.sp
+            )
+        }
 
         Text(
             text = "[${line.source}]",
@@ -7275,8 +7759,32 @@ fun ConsoleLogItemRow(line: ConsoleLogLine, modifier: Modifier = Modifier) {
             modifier = Modifier.width(80.dp)
         )
 
+        // Smart log keyword highlighter for search queries
+        val messageText = line.message
+        val annotatedMessage = remember(messageText, searchQuery) {
+            if (searchQuery.isNotEmpty() && messageText.contains(searchQuery, ignoreCase = true)) {
+                androidx.compose.ui.text.buildAnnotatedString {
+                    var lastIndex = 0
+                    val query = searchQuery.lowercase()
+                    val lowerMessage = messageText.lowercase()
+                    var index = lowerMessage.indexOf(query)
+                    while (index != -1) {
+                        append(messageText.substring(lastIndex, index))
+                        withStyle(style = androidx.compose.ui.text.SpanStyle(background = Color(0xFFF59E0B).copy(alpha = 0.4f), color = Color.White, fontWeight = FontWeight.Bold)) {
+                            append(messageText.substring(index, index + query.length))
+                        }
+                        lastIndex = index + query.length
+                        index = lowerMessage.indexOf(query, lastIndex)
+                    }
+                    append(messageText.substring(lastIndex))
+                }
+            } else {
+                androidx.compose.ui.text.AnnotatedString(messageText)
+            }
+        }
+
         Text(
-            text = line.message,
+            text = annotatedMessage,
             color = Color(0xFFE2E8F0),
             fontFamily = FontFamily.Monospace,
             fontSize = 9.sp,
@@ -7323,6 +7831,7 @@ fun ProxmoxTerminalWidget(
     val terminalHistory = remember { mutableStateListOf<String>() }
     var inputVal by remember { mutableStateOf("") }
     val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         if (terminalHistory.isEmpty()) {
@@ -7374,6 +7883,9 @@ fun ProxmoxTerminalWidget(
                         terminalHistory.add("  pct reboot <vmid>    Reboot an LXC container")
                         terminalHistory.add("  neofetch             Show custom Proxmox system info")
                         terminalHistory.add("  uptime               Show system uptime")
+                        terminalHistory.add("  apt update           Fetch update info from repository indexes")
+                        terminalHistory.add("  apt upgrade          Perform simulated Proxmox VE node upgrade")
+                        terminalHistory.add("  pveupgrade           Start interactive pve-upgrade routine")
                     }
                     "pveversion" -> {
                         terminalHistory.add("pve-manager/8.1.3/b43aac37 (running kernel: 6.5.11-7-pve)")
@@ -7582,6 +8094,78 @@ fun ProxmoxTerminalWidget(
                             }
                         } else {
                             terminalHistory.add("Usage: pct [list|status|start|stop|shutdown|reboot]")
+                        }
+                    }
+                    "apt", "apt-get" -> {
+                        if (parts.size > 1 && parts[1].lowercase(Locale.US) == "update") {
+                            coroutineScope.launch {
+                                terminalHistory.add("Hit:1 http://ftp.debian.org/debian bookworm InRelease")
+                                delay(300)
+                                terminalHistory.add("Get:2 http://ftp.debian.org/debian bookworm-updates InRelease [55.4 kB]")
+                                delay(400)
+                                terminalHistory.add("Get:3 http://security.debian.org/debian-security bookworm-security InRelease [48.0 kB]")
+                                delay(500)
+                                terminalHistory.add("Get:4 http://download.proxmox.com/debian/pve bookworm pve-no-subscription InRelease [3,375 B]")
+                                delay(400)
+                                terminalHistory.add("Get:5 http://security.debian.org/debian-security bookworm-security/main amd64 Packages [162 kB]")
+                                delay(600)
+                                terminalHistory.add("Fetched 268 kB in 2s (134 kB/s)")
+                                terminalHistory.add("Reading package lists... Done")
+                                terminalHistory.add("Building dependency tree... Done")
+                                terminalHistory.add("Reading state information... Done")
+                                terminalHistory.add("10 packages can be upgraded. Run 'apt list --upgradable' to see them.")
+                            }
+                        } else if (parts.size > 1 && parts[1].lowercase(Locale.US) == "upgrade") {
+                            coroutineScope.launch {
+                                terminalHistory.add("Reading package lists... Done")
+                                terminalHistory.add("Building dependency tree... Done")
+                                terminalHistory.add("Reading state information... Done")
+                                terminalHistory.add("Calculating upgrade... Done")
+                                terminalHistory.add("The following packages will be upgraded:")
+                                terminalHistory.add("  libpve-common-perl libpve-guest-common-perl libpve-rs-perl proxmox-ve pve-container pve-manager qemu-server")
+                                terminalHistory.add("7 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.")
+                                terminalHistory.add("Need to get 12.4 MB of archives.")
+                                terminalHistory.add("After this operation, 48.2 kB of additional disk space will be used.")
+                                terminalHistory.add("Do you want to continue? [Y/n] y")
+                                delay(500)
+                                terminalHistory.add("Get:1 http://download.proxmox.com/debian/pve bookworm/pve-no-subscription amd64 pve-manager amd64 8.1.4 [5,234 kB]")
+                                delay(700)
+                                terminalHistory.add("Unpacking libpve-common-perl (8.1.4) over (8.1.3) ...")
+                                delay(400)
+                                terminalHistory.add("Unpacking pve-container (5.0.8) over (5.0.7) ...")
+                                delay(500)
+                                terminalHistory.add("Setting up libpve-common-perl (8.1.4) ...")
+                                delay(300)
+                                terminalHistory.add("Setting up pve-container (5.0.8) ...")
+                                delay(400)
+                                terminalHistory.add("Setting up pve-manager (8.1.4) ...")
+                                delay(600)
+                                terminalHistory.add("Processing triggers for libc-bin (2.36-9+deb12u3) ...")
+                                terminalHistory.add("[SUCCESS] Proxmox system upgrade completed successfully! System is up-to-date.")
+                            }
+                        } else {
+                            terminalHistory.add("Usage: apt [update|upgrade]")
+                        }
+                    }
+                    "pveupgrade" -> {
+                        coroutineScope.launch {
+                            terminalHistory.add("Starting Proxmox VE system upgrade console...")
+                            delay(400)
+                            terminalHistory.add("Reading package lists... Done")
+                            terminalHistory.add("Building dependency tree... Done")
+                            terminalHistory.add("Reading state information... Done")
+                            terminalHistory.add("Calculating upgrade... Done")
+                            terminalHistory.add("The following packages will be upgraded:")
+                            terminalHistory.add("  libpve-common-perl libpve-guest-common-perl libpve-rs-perl proxmox-ve pve-container pve-manager qemu-server")
+                            terminalHistory.add("7 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.")
+                            terminalHistory.add("Need to get 12.4 MB of archives.")
+                            terminalHistory.add("Do you want to continue? [Y/n] y")
+                            delay(600)
+                            terminalHistory.add("Unpacking pve-manager (8.1.4) over (8.1.3) ...")
+                            delay(500)
+                            terminalHistory.add("Setting up pve-manager (8.1.4) ...")
+                            delay(400)
+                            terminalHistory.add("[SUCCESS] pveupgrade completed successfully. Cluster is green!")
                         }
                     }
                     else -> {
@@ -7804,6 +8388,77 @@ fun ProxmoxTerminalWidget(
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TerminalTab(
+    tasksState: TasksUiState,
+    viewModel: ProxmoxViewModel,
+    data: ClusterUiState.Success,
+    modifier: Modifier = Modifier
+) {
+    var selectedSubTab by remember { mutableStateOf("CLI Shell") }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF020617))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "CLUSTER TERMINAL DECK",
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(bottom = 14.dp)
+        )
+
+        // Modern Tab selector for sub-tabs
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0F172A), RoundedCornerShape(10.dp))
+                .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
+                .padding(4.dp)
+        ) {
+            listOf("CLI Shell", "System Logs", "Task History").forEach { subTab ->
+                val isSelected = selectedSubTab == subTab
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) Color(0xFF1E293B) else Color.Transparent)
+                        .clickable { selectedSubTab = subTab }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = subTab,
+                        color = if (isSelected) Color(0xFF10B981) else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Render selected sub-tab
+        Box(modifier = Modifier.weight(1f)) {
+            when (selectedSubTab) {
+                "CLI Shell" -> {
+                    ProxmoxTerminalWidget(viewModel = viewModel, data = data)
+                }
+                "System Logs" -> {
+                    RealTimeConsoleLogWidget(tasksState = tasksState)
+                }
+                "Task History" -> {
+                    TasksTab(tasksState = tasksState, viewModel = viewModel)
                 }
             }
         }

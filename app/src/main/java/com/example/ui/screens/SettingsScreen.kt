@@ -44,12 +44,18 @@ fun SettingsScreen(
     var isClearingData by remember { mutableStateOf(false) }
     var clearSuccess by remember { mutableStateOf(false) }
 
+    val isDark = when (viewModel.themeSetting) {
+        "Dark" -> true
+        "Light" -> false
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+
     // Colors & Theme constants matching a beautiful blue-accented premium theme
-    val midnightBlueBg = Color(0xFF030712)
-    val deepNavyBg = Color(0xFF0B132B)
-    val cardBg = Color(0xFF111827)
-    val borderBlue = Color(0xFF1E293B)
-    val accentBlue = Color(0xFF38BDF8) // Soft Blue for settings accents
+    val midnightBlueBg = if (isDark) Color(0xFF030712) else Color(0xFFF8FAFC)
+    val deepNavyBg = if (isDark) Color(0xFF0B132B) else Color(0xFFF1F5F9)
+    val cardBg = if (isDark) Color(0xFF111827) else Color(0xFFFFFFFF)
+    val borderBlue = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+    val accentBlue = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7) // Soft Blue for settings accents
 
     val gradientBg = Brush.verticalGradient(
         colors = listOf(deepNavyBg, midnightBlueBg)
@@ -68,7 +74,7 @@ fun SettingsScreen(
                     Text(
                         text = "Sistem Ayarları",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = if (isDark) Color.White else Color(0xFF0F172A),
                         fontSize = 18.sp
                     )
                 },
@@ -78,19 +84,19 @@ fun SettingsScreen(
                         modifier = Modifier
                             .padding(8.dp)
                             .size(36.dp)
-                            .background(Color(0xFF1F2937), CircleShape)
+                            .background(if (isDark) Color(0xFF1F2937) else Color(0xFFE2E8F0), CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Geri Dön",
-                            tint = Color.White,
+                            tint = if (isDark) Color.White else Color(0xFF0F172A),
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = deepNavyBg,
-                    titleContentColor = Color.White
+                    titleContentColor = if (isDark) Color.White else Color(0xFF0F172A)
                 )
             )
         },
@@ -140,21 +146,22 @@ fun SettingsScreen(
                                 else -> viewModel.themeSetting
                             },
                             options = themeOptions,
-                            onSelect = { viewModel.updateThemeSetting(it) }
+                            onSelect = { viewModel.updateThemeSetting(it) },
+                            isDark = isDark
                         )
 
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp, modifier = Modifier.padding(vertical = 12.dp))
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp, modifier = Modifier.padding(vertical = 12.dp))
 
                         // Dynamic accent color picker (Turuncu, Mavi, Yeşil, Mor)
                         Text(
                             text = "Tema Renk Paleti",
-                            color = Color.White,
+                            color = if (isDark) Color.White else Color(0xFF0F172A),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Text(
                             text = "Giriş ve ana sayfa arayüzlerindeki vurgu rengini seçin",
-                            color = Color(0xFF94A3B8),
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
@@ -185,7 +192,7 @@ fun SettingsScreen(
                                             .background(colorVal)
                                             .border(
                                                 width = if (isSelected) 3.dp else 1.dp,
-                                                color = if (isSelected) Color.White else Color(0xFF475569),
+                                                color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else (if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)),
                                                 shape = CircleShape
                                             ),
                                         contentAlignment = Alignment.Center
@@ -202,7 +209,7 @@ fun SettingsScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = label,
-                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                        color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)),
                                         fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
@@ -254,13 +261,13 @@ fun SettingsScreen(
                                 Column {
                                     Text(
                                         text = "AI Sağlayıcısı",
-                                        color = Color.White,
+                                        color = if (isDark) Color.White else Color(0xFF0F172A),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 15.sp
                                     )
                                     Text(
                                         text = "Etkin yapay zeka altyapısını seçin",
-                                        color = Color(0xFF94A3B8),
+                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                                         fontSize = 12.sp
                                     )
                                 }
@@ -277,17 +284,17 @@ fun SettingsScreen(
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = null,
-                                        tint = Color(0xFF64748B)
+                                        tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569)
                                     )
                                 }
                                 DropdownMenu(
                                     expanded = expandedProvider,
                                     onDismissRequest = { expandedProvider = false },
-                                    modifier = Modifier.background(Color(0xFF1F2937))
+                                    modifier = Modifier.background(if (isDark) Color(0xFF1F2937) else Color.White)
                                 ) {
                                     aiProviders.forEach { provider ->
                                         DropdownMenuItem(
-                                            text = { Text(provider, color = Color.White) },
+                                            text = { Text(provider, color = if (isDark) Color.White else Color(0xFF0F172A)) },
                                             onClick = {
                                                 viewModel.updateAiProviderSetting(provider)
                                                 expandedProvider = false
@@ -306,30 +313,30 @@ fun SettingsScreen(
                             OutlinedTextField(
                                 value = viewModel.aiApiKeySetting,
                                 onValueChange = { viewModel.updateAiApiKeySetting(it) },
-                                label = { Text("API Anahtarı (API Key)", color = Color(0xFF94A3B8)) },
+                                label = { Text("API Anahtarı (API Key)", color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                                 visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
                                 trailingIcon = {
                                     IconButton(onClick = { showApiKey = !showApiKey }) {
                                         Icon(
                                             imageVector = if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                             contentDescription = "API Anahtarını Göster/Gizle",
-                                            tint = Color(0xFF64748B)
+                                            tint = if (isDark) Color(0xFF64748B) else Color(0xFF475569)
                                         )
                                     }
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
                                     focusedBorderColor = accentBlue,
-                                    unfocusedBorderColor = Color(0xFF334155),
+                                    unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
                                     focusedContainerColor = midnightBlueBg,
                                     unfocusedContainerColor = midnightBlueBg
                                 ),
                                 placeholder = {
                                     if (viewModel.aiProviderSetting == "Gemini") {
-                                        Text("Sistem varsayılan anahtarı etkin...", color = Color(0xFF475569))
+                                        Text("Sistem varsayılan anahtarı etkin...", color = if (isDark) Color(0xFF475569) else Color(0xFF94A3B8))
                                     } else {
-                                        Text("API anahtarınızı girin", color = Color(0xFF475569))
+                                        Text("API anahtarınızı girin", color = if (isDark) Color(0xFF475569) else Color(0xFF94A3B8))
                                     }
                                 },
                                 supportingText = {
@@ -346,12 +353,12 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = viewModel.aiModelSetting,
                             onValueChange = { viewModel.updateAiModelSetting(it) },
-                            label = { Text("Yapay Zeka Modeli (Model Name)", color = Color(0xFF94A3B8)) },
+                            label = { Text("Yapay Zeka Modeli (Model Name)", color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)) },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
+                                focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
                                 focusedBorderColor = accentBlue,
-                                unfocusedBorderColor = Color(0xFF334155),
+                                unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
                                 focusedContainerColor = midnightBlueBg,
                                 unfocusedContainerColor = midnightBlueBg
                             ),
@@ -363,7 +370,7 @@ fun SettingsScreen(
                                     "Ollama" -> "llama3"
                                     else -> ""
                                 }
-                                Text(ph, color = Color(0xFF475569))
+                                Text(ph, color = if (isDark) Color(0xFF475569) else Color(0xFF94A3B8))
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -376,19 +383,19 @@ fun SettingsScreen(
                                 onValueChange = { viewModel.updateAiBaseUrlSetting(it) },
                                 label = {
                                     val lbl = if (viewModel.aiProviderSetting == "Ollama") "Ollama Endpoint URL" else "Özel Base URL (Proxy)"
-                                    Text(lbl, color = Color(0xFF94A3B8))
+                                    Text(lbl, color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569))
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
                                     focusedBorderColor = accentBlue,
-                                    unfocusedBorderColor = Color(0xFF334155),
+                                    unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
                                     focusedContainerColor = midnightBlueBg,
                                     unfocusedContainerColor = midnightBlueBg
                                 ),
                                 placeholder = {
                                     val ph = if (viewModel.aiProviderSetting == "Ollama") "http://10.0.2.2:11434" else "https://api.openai.com"
-                                    Text(ph, color = Color(0xFF475569))
+                                    Text(ph, color = if (isDark) Color(0xFF475569) else Color(0xFF94A3B8))
                                 },
                                 supportingText = {
                                     val helperText = if (viewModel.aiProviderSetting == "Ollama") {
@@ -396,7 +403,7 @@ fun SettingsScreen(
                                     } else {
                                         "İsteğe bağlı: Resmi OpenAI API uç noktası için boş bırakın."
                                     }
-                                    Text(helperText, color = Color(0xFF64748B), fontSize = 11.sp)
+                                    Text(helperText, color = if (isDark) Color(0xFF64748B) else Color(0xFF475569), fontSize = 11.sp)
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -430,9 +437,10 @@ fun SettingsScreen(
                             subtext = "Sorgularda beklenecek maksimum süre",
                             currentValue = viewModel.timeoutSetting,
                             options = timeoutOptions,
-                            onSelect = { viewModel.updateTimeoutSetting(it) }
+                            onSelect = { viewModel.updateTimeoutSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 2. 24h Time setting
                         SettingsSwitchRow(
@@ -440,9 +448,10 @@ fun SettingsScreen(
                             label = "24 Saat Saat Formatı",
                             subtext = "Tarih ve zamanlarda 24 saatlik dilim kullan",
                             checked = viewModel.is24hTimeSetting,
-                            onCheckedChange = { viewModel.updateIs24hTimeSetting(it) }
+                            onCheckedChange = { viewModel.updateIs24hTimeSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 3. Date Format setting
                         SettingsDropdownRow(
@@ -451,9 +460,10 @@ fun SettingsScreen(
                             subtext = "Tarihlerin uygulama genelinde gösterim şekli",
                             currentValue = viewModel.dateFormatSetting,
                             options = dateOptions,
-                            onSelect = { viewModel.updateDateFormatSetting(it) }
+                            onSelect = { viewModel.updateDateFormatSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 4. Guest names
                         SettingsSwitchRow(
@@ -461,9 +471,10 @@ fun SettingsScreen(
                             label = "Konuk Düğüm İsimlerini Göster",
                             subtext = "Kapsayıcı ve VM'lerin altında bağlı oldukları düğümü yaz",
                             checked = viewModel.showGuestNodeNamesSetting,
-                            onCheckedChange = { viewModel.updateShowGuestNodeNamesSetting(it) }
+                            onCheckedChange = { viewModel.updateShowGuestNodeNamesSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 5. Resource Counts
                         SettingsSwitchRow(
@@ -471,9 +482,10 @@ fun SettingsScreen(
                             label = "Kaynak Sayılarını Listele",
                             subtext = "Düğüm ve sanal makine sayılarını sunucu listesinde göster",
                             checked = viewModel.showResourceCountsSetting,
-                            onCheckedChange = { viewModel.updateShowResourceCountsSetting(it) }
+                            onCheckedChange = { viewModel.updateShowResourceCountsSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 6. Group servers by status
                         SettingsSwitchRow(
@@ -481,9 +493,10 @@ fun SettingsScreen(
                             label = "Sunucuları Duruma Göre Grupla",
                             subtext = "Çevrimiçi ve çevrimdışı sunucuları ayrı bölümlerde tut",
                             checked = viewModel.groupServersByStatusSetting,
-                            onCheckedChange = { viewModel.updateGroupServersByStatusSetting(it) }
+                            onCheckedChange = { viewModel.updateGroupServersByStatusSetting(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 7. Live polling switch
                         SettingsSwitchRow(
@@ -491,9 +504,10 @@ fun SettingsScreen(
                             label = "Anlık Canlı Veri Sorgulama",
                             subtext = "Bağlı olunan sunucuyu belirli aralıklarla otomatik yenile",
                             checked = viewModel.isLiveMode,
-                            onCheckedChange = { viewModel.toggleLiveMode(it) }
+                            onCheckedChange = { viewModel.toggleLiveMode(it) },
+                            isDark = isDark
                         )
-                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.8.dp)
+                        HorizontalDivider(color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0), thickness = 0.8.dp)
 
                         // 8. Live polling interval dropdown
                         SettingsDropdownRow(
@@ -505,7 +519,8 @@ fun SettingsScreen(
                             onSelect = { selectedValue ->
                                 val seconds = selectedValue.removeSuffix("s").toIntOrNull() ?: 10
                                 viewModel.setPollingInterval(seconds)
-                            }
+                            },
+                            isDark = isDark
                         )
                     }
                 }
@@ -533,7 +548,8 @@ fun SettingsScreen(
                         label = "Uygulama Giriş Kilidi",
                         subtext = "Uygulama açılırken biyometrik/PIN doğrulaması iste",
                         checked = viewModel.appLockEnabledSetting,
-                        onCheckedChange = { viewModel.updateAppLockEnabledSetting(it) }
+                        onCheckedChange = { viewModel.updateAppLockEnabledSetting(it) },
+                        isDark = isDark
                     )
                 }
 
@@ -572,13 +588,13 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1.5f)) {
                             Text(
                                 text = "Tarayıcı Önbelleğini Temizle",
-                                color = Color.White,
+                                color = if (isDark) Color.White else Color(0xFF0F172A),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 15.sp
                             )
                             Text(
                                 text = "Gömülü tarayıcı çerezlerini, oturum bilgilerini ve önbelleği sıfırlar",
-                                color = Color(0xFF64748B),
+                                color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                 fontSize = 12.sp
                             )
                         }
@@ -608,13 +624,13 @@ fun SettingsScreen(
                                 Text(
                                     text = "Önbellek Temizleniyor...",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = if (isDark) Color.White else Color(0xFF0F172A),
                                     fontSize = 16.sp
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "Oturum çerezleri, şifrelenmiş ağ önbelleği ve geçici dosyalar sıfırlanıyor...",
-                                    color = Color(0xFF64748B),
+                                    color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center
                                 )
@@ -637,12 +653,12 @@ fun SettingsScreen(
                                 Text(
                                     text = "Başarıyla Temizlendi",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = if (isDark) Color.White else Color(0xFF0F172A),
                                     fontSize = 16.sp
                                 )
                                 Text(
                                     text = "Önbellek havuzu başarıyla sıfırlandı.",
-                                    color = Color(0xFF64748B),
+                                    color = if (isDark) Color(0xFF64748B) else Color(0xFF475569),
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center
                                 )
@@ -661,7 +677,8 @@ fun SettingsSwitchRow(
     label: String,
     subtext: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    isDark: Boolean = androidx.compose.foundation.isSystemInDarkTheme()
 ) {
     Row(
         modifier = Modifier
@@ -677,20 +694,20 @@ fun SettingsSwitchRow(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = Color(0xFF64748B),
+                tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7), // Beautiful soft blue tint for icons
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
                     text = label,
-                    color = Color.White,
+                    color = if (isDark) Color.White else Color(0xFF0F172A),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp
                 )
                 Text(
                     text = subtext,
-                    color = Color(0xFF64748B),
+                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569), // Brighter, high-contrast slate color
                     fontSize = 12.sp
                 )
             }
@@ -700,7 +717,7 @@ fun SettingsSwitchRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF0284C7)
+                checkedTrackColor = if (isDark) Color(0xFF0284C7) else Color(0xFF0369A1)
             )
         )
     }
@@ -713,7 +730,8 @@ fun SettingsDropdownRow(
     subtext: String,
     currentValue: String,
     options: List<String>,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    isDark: Boolean = androidx.compose.foundation.isSystemInDarkTheme()
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -732,20 +750,20 @@ fun SettingsDropdownRow(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = Color(0xFF64748B),
+                tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7), // Beautiful soft blue tint for icons
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
                     text = label,
-                    color = Color.White,
+                    color = if (isDark) Color.White else Color(0xFF0F172A),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp
                 )
                 Text(
                     text = subtext,
-                    color = Color(0xFF64748B),
+                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569), // Brighter, high-contrast slate color
                     fontSize = 12.sp
                 )
             }
@@ -755,7 +773,7 @@ fun SettingsDropdownRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = currentValue,
-                    color = Color(0xFF38BDF8),
+                    color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -763,18 +781,18 @@ fun SettingsDropdownRow(
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = null,
-                    tint = Color(0xFF64748B)
+                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569) // Brighter arrow dropdown tint
                 )
             }
 
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color(0xFF1F2937))
+                modifier = Modifier.background(if (isDark) Color(0xFF1F2937) else Color.White)
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option, color = Color.White) },
+                        text = { Text(option, color = if (isDark) Color.White else Color(0xFF0F172A)) },
                         onClick = {
                             onSelect(option)
                             expanded = false

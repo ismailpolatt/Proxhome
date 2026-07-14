@@ -133,9 +133,25 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     var aiBaseUrlSetting by mutableStateOf(prefs.getString("ai_base_url", "") ?: "")
         private set
 
+    private var feedbackToast: android.widget.Toast? = null
+    private fun showSaveFeedback() {
+        try {
+            feedbackToast?.cancel()
+            feedbackToast = android.widget.Toast.makeText(
+                getApplication(),
+                "Ayarlar başarıyla kaydedildi ✓",
+                android.widget.Toast.LENGTH_SHORT
+            )
+            feedbackToast?.show()
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+    }
+
     fun updateAiProviderSetting(value: String) {
         aiProviderSetting = value
         prefs.edit().putString("ai_provider", value).apply()
+        showSaveFeedback()
         // Automatically set sensible default models based on selected provider
         val defaultModel = when (value) {
             "Gemini" -> "gemini-3.5-flash"
@@ -150,64 +166,78 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     fun updateAiApiKeySetting(value: String) {
         aiApiKeySetting = value
         prefs.edit().putString("ai_api_key", value).apply()
+        showSaveFeedback()
     }
 
     fun updateAiModelSetting(value: String) {
         aiModelSetting = value
         prefs.edit().putString("ai_model", value).apply()
+        // We only trigger toast feedback if it's not part of the provider cascade to avoid double-toast
     }
 
     fun updateAiBaseUrlSetting(value: String) {
         aiBaseUrlSetting = value
         prefs.edit().putString("ai_base_url", value).apply()
+        showSaveFeedback()
     }
 
     fun updateThemeSetting(value: String) {
         themeSetting = value
         prefs.edit().putString("theme", value).apply()
+        showSaveFeedback()
     }
     fun updatePrimaryColorSetting(value: String) {
         primaryColorSetting = value
         prefs.edit().putString("primary_color", value).apply()
+        showSaveFeedback()
     }
     fun updateTimeoutSetting(value: String) {
         timeoutSetting = value
         prefs.edit().putString("timeout", value).apply()
+        showSaveFeedback()
     }
     fun updateIs24hTimeSetting(value: Boolean) {
         is24hTimeSetting = value
         prefs.edit().putBoolean("24h_time", value).apply()
+        showSaveFeedback()
     }
     fun updateDateFormatSetting(value: String) {
         dateFormatSetting = value
         prefs.edit().putString("date_format", value).apply()
+        showSaveFeedback()
     }
     fun updateShowGuestNodeNamesSetting(value: Boolean) {
         showGuestNodeNamesSetting = value
         prefs.edit().putBoolean("show_guest_node_names", value).apply()
+        showSaveFeedback()
     }
     fun updateShowResourceCountsSetting(value: Boolean) {
         showResourceCountsSetting = value
         prefs.edit().putBoolean("show_resource_counts", value).apply()
+        showSaveFeedback()
     }
     fun updateGroupServersByStatusSetting(value: Boolean) {
         groupServersByStatusSetting = value
         prefs.edit().putBoolean("group_servers_by_status", value).apply()
+        showSaveFeedback()
     }
     fun updateAppLockEnabledSetting(value: Boolean) {
         appLockEnabledSetting = value
         prefs.edit().putBoolean("app_lock_enabled", value).apply()
+        showSaveFeedback()
     }
 
     fun toggleLiveMode(enabled: Boolean) {
         isLiveMode = enabled
         prefs.edit().putBoolean("live_polling", enabled).apply()
+        showSaveFeedback()
         selectedServer?.let { startPolling(it) }
     }
 
     fun setPollingInterval(seconds: Int) {
         pollingIntervalSeconds = seconds
         prefs.edit().putInt("polling_interval", seconds).apply()
+        showSaveFeedback()
         selectedServer?.let { startPolling(it) }
     }
 
