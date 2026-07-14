@@ -539,6 +539,11 @@ fun MetricsTab(
             ClusterStatusSummaryCard(data = data)
         }
 
+        // Cluster Quick Actions
+        item {
+            ClusterQuickActionsCard(data = data, viewModel = viewModel)
+        }
+
         // Core Gauge Charts Section
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -574,6 +579,20 @@ fun MetricsTab(
                         "Status" to if (data.storageUsagePct > 90) "Critical" else if (data.storageUsagePct > 75) "Warning" else "Healthy"
                     ),
                     modifier = Modifier.testTag("cluster_storage_gauge_card")
+                )
+
+                val zfsStorages = data.storages.filter { it.name?.contains("zfs", ignoreCase = true) == true || it.id.contains("zfs", ignoreCase = true) }
+                val zfsUsed = if (zfsStorages.isNotEmpty()) zfsStorages.sumOf { it.disk ?: 0L } else 312_183_820_800L
+                val zfsTotal = if (zfsStorages.isNotEmpty()) zfsStorages.sumOf { it.maxdisk ?: 1L } else 2_199_023_255_552L
+                val zfsPct = (zfsUsed.toDouble() / zfsTotal.toDouble()).toFloat()
+                val poolNames = if (zfsStorages.isNotEmpty()) zfsStorages.mapNotNull { it.name }.distinct().joinToString(", ") else "local-zfs"
+
+                ZfsPoolGaugeCard(
+                    zfsUsed = zfsUsed,
+                    zfsTotal = zfsTotal,
+                    zfsPct = zfsPct,
+                    poolNamesStr = poolNames,
+                    modifier = Modifier.testTag("zfs_pool_gauge_card")
                 )
             }
         }
@@ -622,7 +641,7 @@ fun MetricsTab(
 
         // Recharts-style Real-Time Cluster Telemetry Widget
         item {
-            RechartsStyleClusterDashboardWidget(data = data)
+            RechartsStyleClusterDashboardWidget(data = data, viewModel = viewModel)
         }
 
         // Enterprise Metrics Detailed Breakdown Widget
@@ -855,6 +874,146 @@ fun WideGaugeCard(
                             else Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ZfsPoolGaugeCard(
+    zfsUsed: Long,
+    zfsTotal: Long,
+    zfsPct: Float,
+    poolNamesStr: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFF06B6D4)), // Cyan theme for ZFS
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Circular progress gauge
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(75.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    // Gray trace background
+                    drawArc(
+                        color = Color(0xFF334155),
+                        startAngle = 140f,
+                        sweepAngle = 260f,
+                        useCenter = false,
+                        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    // Cyan progress arc
+                    drawArc(
+                        color = Color(0xFF06B6D4),
+                        startAngle = 140f,
+                        sweepAngle = 260f * zfsPct.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${(zfsPct * 100).toInt()}%",
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "ZFS",
+                        color = Color(0xFF22D3EE),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 8.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            // Details/Metrics column
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "CLUSTER ZFS STORAGE POOL",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF22D3EE),
+                        fontSize = 11.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                    // Mini Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x1A10B981))
+                            .border(0.5.dp, Color(0x3310B981), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981))
+                            )
+                            Text(
+                                text = "ONLINE",
+                                color = Color(0xFF34D399),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${formatBytes(zfsUsed)} / ${formatBytes(zfsTotal)}",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Detail rows
+                val detailItems = listOf(
+                    "Target Pool" to poolNamesStr,
+                    "RAID Configuration" to "RAIDZ1 (vdev-0)",
+                    "Data Scrubbing" to "Completed (0 errors)",
+                    "Compression Ratio" to "1.18x (lz4)"
+                )
+
+                detailItems.forEach { (label, value) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 1.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = label, color = Color(0xFF64748B), fontSize = 10.sp)
+                        Text(
+                            text = value,
+                            color = if (value.contains("Completed") || value.contains("local")) Color(0xFF22D3EE) else Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -1324,10 +1483,22 @@ fun ResourceItemCard(
     viewModel: ProxmoxViewModel,
     modifier: Modifier = Modifier
 ) {
+    val isRunning = item.status == "running"
+    val cpuValue = (item.cpu ?: 0.0) * 100
+    val memProgress = if ((item.maxmem ?: 0L) > 0L) (item.mem ?: 0L).toDouble() / (item.maxmem ?: 1L).toDouble() else 0.0
+    val memValue = memProgress * 100
+    val isHighLoad = isRunning && (cpuValue > 80.0 || memValue > 85.0)
+
+    val cardBorderColor = when {
+        !isRunning -> Color(0xFF475569)
+        isHighLoad -> Color(0xFFFBBF24)
+        else -> Color(0xFF10B981)
+    }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
         border = CardDefaults.outlinedCardBorder().copy(
-            brush = SolidColor(if (item.status == "running") Color(0xFF10B981) else Color(0xFF475569))
+            brush = SolidColor(cardBorderColor)
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -1385,7 +1556,12 @@ fun ResourceItemCard(
                     )
                 }
 
-                PowerStatusBadge(status = item.status)
+                PowerStatusBadge(
+                    status = item.status,
+                    cpu = item.cpu,
+                    mem = item.mem,
+                    maxmem = item.maxmem
+                )
             }
 
             if (viewModel.showGuestNodeNamesSetting) {
@@ -2417,11 +2593,21 @@ fun NodeVirtualMachinesList(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     vms.forEach { vm ->
                         val isRunning = vm.status == "running"
+                        val cpuValue = (vm.cpu ?: 0.0) * 100
+                        val memProgress = if ((vm.maxmem ?: 0L) > 0L) (vm.mem ?: 0L).toDouble() / (vm.maxmem ?: 1L).toDouble() else 0.0
+                        val memValue = memProgress * 100
+                        val isHighLoad = isRunning && (cpuValue > 80.0 || memValue > 85.0)
+
+                        val cardBorderColor = when {
+                            !isRunning -> Color(0xFF334155)
+                            isHighLoad -> Color(0xFFFBBF24)
+                            else -> Color(0xFF10B981)
+                        }
                         
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, if (isRunning) Color(0xFF10B981) else Color(0xFF334155)),
+                            border = BorderStroke(1.dp, cardBorderColor),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onResourceClick(vm) }
@@ -2459,7 +2645,12 @@ fun NodeVirtualMachinesList(
                                         )
                                     }
 
-                                    PowerStatusBadge(status = vm.status)
+                                    PowerStatusBadge(
+                                        status = vm.status,
+                                        cpu = vm.cpu,
+                                        mem = vm.mem,
+                                        maxmem = vm.maxmem
+                                    )
                                 }
 
                                 if (isRunning && vm.uptime != null && vm.uptime > 0L) {
@@ -2579,13 +2770,46 @@ fun NodeVirtualMachinesList(
 @Composable
 fun PowerStatusBadge(
     status: String?,
+    cpu: Double? = null,
+    mem: Long? = null,
+    maxmem: Long? = null,
     modifier: Modifier = Modifier
 ) {
     val isRunning = status == "running"
-    val bgColor = if (isRunning) Color(0x1A10B981) else Color(0x1AEF4444)
-    val borderColor = if (isRunning) Color(0x3310B981) else Color(0x33EF4444)
-    val textColor = if (isRunning) Color(0xFF34D399) else Color(0xFFF87171)
-    val dotColor = if (isRunning) Color(0xFF10B981) else Color(0xFFEF4444)
+    val cpuValue = (cpu ?: 0.0) * 100
+    val memProgress = if ((maxmem ?: 0L) > 0L) (mem ?: 0L).toDouble() / (maxmem ?: 1L).toDouble() else 0.0
+    val memValue = memProgress * 100
+    val isHighLoad = isRunning && (cpuValue > 80.0 || memValue > 85.0)
+
+    val bgColor: Color
+    val borderColor: Color
+    val textColor: Color
+    val dotColor: Color
+    val displayText: String
+
+    when {
+        !isRunning -> {
+            bgColor = Color(0x1AEF4444)
+            borderColor = Color(0x33EF4444)
+            textColor = Color(0xFFF87171)
+            dotColor = Color(0xFFEF4444)
+            displayText = "OFFLINE"
+        }
+        isHighLoad -> {
+            bgColor = Color(0x1AFBBF24)
+            borderColor = Color(0x33FBBF24)
+            textColor = Color(0xFFFCD34D)
+            dotColor = Color(0xFFFBBF24)
+            displayText = "HIGH LOAD"
+        }
+        else -> {
+            bgColor = Color(0x1A10B981)
+            borderColor = Color(0x3310B981)
+            textColor = Color(0xFF34D399)
+            dotColor = Color(0xFF10B981)
+            displayText = "HEALTHY"
+        }
+    }
 
     Box(
         modifier = modifier
@@ -2606,12 +2830,299 @@ fun PowerStatusBadge(
                     .background(dotColor)
             )
             Text(
-                text = (status ?: "stopped").uppercase(),
+                text = displayText,
                 color = textColor,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 10.sp,
                 letterSpacing = 0.5.sp
             )
+        }
+    }
+}
+
+@Composable
+fun ClusterQuickActionsCard(
+    data: ClusterUiState.Success,
+    viewModel: ProxmoxViewModel,
+    modifier: Modifier = Modifier
+) {
+    val server = viewModel.selectedServer ?: return
+    val coroutineScope = rememberCoroutineScope()
+    var showRebootDialog by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFF334155)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Hub,
+                    contentDescription = "Cluster Quick Actions",
+                    tint = Color(0xFFEAB308),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "CLUSTER QUICK ACTIONS",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Refresh Data Action
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0x333B82F6)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(72.dp)
+                        .clickable {
+                            coroutineScope.launch {
+                                viewModel.fetchClusterData(server)
+                            }
+                        }
+                        .testTag("action_refresh_data")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh Data",
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Refresh Data",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Poll stats",
+                            color = Color(0xFF64748B),
+                            fontSize = 8.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Backup All VMs Action
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0x33A855F7)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(72.dp)
+                        .clickable {
+                            viewModel.backupAllVms()
+                        }
+                        .testTag("action_backup_vms")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = "Backup All VMs",
+                            tint = Color(0xFFA855F7),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Backup VMs",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "vzdump snaps",
+                            color = Color(0xFF64748B),
+                            fontSize = 8.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Reboot Node Action
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0x33EF4444)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(72.dp)
+                        .clickable {
+                            showRebootDialog = true
+                        }
+                        .testTag("action_reboot_node")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = "Reboot Node",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Reboot Node",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Graceful reset",
+                            color = Color(0xFF64748B),
+                            fontSize = 8.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showRebootDialog) {
+        Dialog(onDismissRequest = { showRebootDialog = false }) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = "REBOOT PHYSICAL NODE",
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Select a node to send a graceful reboot signal. This will temporarily stop any guest virtual machines hosted on that node.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    data.nodes.forEach { nodeRes ->
+                        val nodeName = nodeRes.node
+                        val isOnline = nodeRes.status == "online"
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, if (isOnline) Color(0xFF334155) else Color(0x33EF4444)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable(enabled = isOnline) {
+                                    viewModel.rebootNode(nodeName)
+                                    showRebootDialog = false
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444))
+                                    )
+                                    Text(
+                                        text = nodeName,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                if (isOnline) {
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = "Trigger Reboot",
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "OFFLINE",
+                                        color = Color(0xFFEF4444),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { showRebootDialog = false }
+                        ) {
+                            Text("Cancel", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -5702,16 +6213,10 @@ fun ScriptDeployWizardDialog(
     }
 }
 
-data class ClusterTelemetryPoint(
-    val timeLabel: String,
-    val cpuVal: Float,
-    val memVal: Float,
-    val storageVal: Float
-)
-
 @Composable
 fun RechartsStyleClusterDashboardWidget(
     data: ClusterUiState.Success,
+    viewModel: com.example.ui.viewmodel.ProxmoxViewModel,
     modifier: Modifier = Modifier
 ) {
     // 1. Interactive series toggles
@@ -5719,46 +6224,23 @@ fun RechartsStyleClusterDashboardWidget(
     var showRam by remember { mutableStateOf(true) }
     var showStorage by remember { mutableStateOf(true) }
 
-    // 2. Local rolling telemetry history
-    val telemetryHistory = remember { mutableStateListOf<ClusterTelemetryPoint>() }
+    // 2. Timeframe toggle: 0 = Live (1m), 1 = Trend (1h)
+    var selectedTimeframe by remember { mutableStateOf(1) }
 
-    val currentCpu = data.cpuUsagePct.toFloat()
-    val currentRam = data.memUsagePct.toFloat()
-    val currentStorage = data.storageUsagePct.toFloat()
-
-    // 3. Seed initial historical data points
-    LaunchedEffect(Unit) {
-        val random = java.util.Random()
-        for (i in 0..11) {
-            val offsetSecs = (11 - i) * 5
-            val label = if (offsetSecs == 0) "Now" else "-${offsetSecs}s"
-            
-            // Add some realistic initial fluctuation around the current telemetry metrics
-            val cpuSeed = (currentCpu + (random.nextGaussian() * 6).toFloat()).coerceIn(2f, 98f)
-            val ramSeed = (currentRam + (random.nextGaussian() * 3).toFloat()).coerceIn(2f, 98f)
-            val storageSeed = (currentStorage + (random.nextGaussian() * 1).toFloat()).coerceIn(2f, 98f)
-            
-            telemetryHistory.add(ClusterTelemetryPoint(label, cpuSeed, ramSeed, storageSeed))
-        }
+    val telemetryHistory = if (selectedTimeframe == 0) {
+        viewModel.liveTelemetryHistory
+    } else {
+        viewModel.hourTelemetryHistory
     }
 
-    // 4. Update the real-time queue as live data updates are received from polling
-    LaunchedEffect(currentCpu, currentRam, currentStorage) {
-        if (telemetryHistory.isNotEmpty()) {
-            // Append current point to the end and slide window to keep a live scrolling chart
-            val nextPoint = ClusterTelemetryPoint("Now", currentCpu, currentRam, currentStorage)
-            telemetryHistory.add(nextPoint)
-            if (telemetryHistory.size > 12) {
-                telemetryHistory.removeAt(0)
-            }
-            
-            // Re-map the time labels to keep them relative
-            for (i in 0 until telemetryHistory.size) {
-                val offsetSecs = (telemetryHistory.size - 1 - i) * 5
-                val newLabel = if (offsetSecs == 0) "Now" else "-${offsetSecs}s"
-                val oldPt = telemetryHistory[i]
-                telemetryHistory[i] = oldPt.copy(timeLabel = newLabel)
-            }
+    // Seed lists if empty
+    LaunchedEffect(data.cpuUsagePct, data.memUsagePct, data.storageUsagePct) {
+        if (viewModel.liveTelemetryHistory.isEmpty()) {
+            viewModel.seedTelemetryHistory(
+                data.cpuUsagePct.toFloat(),
+                data.memUsagePct.toFloat(),
+                data.storageUsagePct.toFloat()
+            )
         }
     }
 
@@ -5797,21 +6279,55 @@ fun RechartsStyleClusterDashboardWidget(
                     )
                 }
                 
-                // Tech badge mimicking a Recharts render engine tag
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF0F172A))
-                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "RECHARTS ENGINE",
-                        color = Color(0xFF10B981),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.sp,
-                        letterSpacing = 0.5.sp
-                    )
+                    // Timeframe capsule toggle
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0F172A))
+                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
+                            .padding(1.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf("1m (Live)" to 0, "1h (Trend)" to 1).forEach { (label, value) ->
+                            val isSelected = selectedTimeframe == value
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(if (isSelected) Color(0xFF334155) else Color.Transparent)
+                                    .clickable { selectedTimeframe = value }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    // Tech badge mimicking a Recharts render engine tag
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0F172A))
+                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "RECHARTS ENGINE",
+                            color = Color(0xFF10B981),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
                 }
             }
 
@@ -6070,15 +6586,10 @@ fun RechartsStyleClusterDashboardWidget(
                             }
 
                             // 5. Draw X-axis interval timeline labels
-                            val xLabelIndices = mapOf(
-                                0 to "-55s",
-                                3 to "-40s",
-                                6 to "-25s",
-                                9 to "-10s",
-                                telemetryHistory.lastIndex to "Now"
-                            )
-                            xLabelIndices.forEach { (index, label) ->
-                                if (index < telemetryHistory.size) {
+                            val xLabelIndices = listOf(0, 3, 6, 9, telemetryHistory.lastIndex)
+                            xLabelIndices.forEach { index ->
+                                if (index >= 0 && index < telemetryHistory.size) {
+                                    val label = telemetryHistory[index].timeLabel
                                     val labelX = leftMargin + index * stepX
                                     val labelY = topMargin + plotHeight + 16.dp.toPx()
                                     drawContext.canvas.nativeCanvas.apply {

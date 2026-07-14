@@ -190,6 +190,15 @@ class ProxmoxRepository(private val proxmoxDao: ProxmoxDao) {
                 status = "online",
                 disk = 1_932_735_283_200L,
                 maxdisk = 5_497_558_138_880L
+            ),
+            ClusterResource(
+                id = "storage/pve-cluster-node1/local-zfs",
+                type = "storage",
+                node = "pve-cluster-node1",
+                name = "local-zfs",
+                status = "online",
+                disk = 312_183_820_800L,
+                maxdisk = 2_199_023_255_552L
             )
         )
 
@@ -507,5 +516,14 @@ class ProxmoxRepository(private val proxmoxDao: ProxmoxDao) {
             localTaskList.add(0, newTask)
         }
         return true
+    }
+
+    fun addLocalTask(server: ProxmoxServer, task: ClusterTask) {
+        if (server.isDemo) {
+            demoTasks.add(0, task)
+        } else {
+            val localTaskList = locallyCreatedTasks.getOrPut(server.id) { mutableListOf() }
+            localTaskList.add(0, task)
+        }
     }
 }
