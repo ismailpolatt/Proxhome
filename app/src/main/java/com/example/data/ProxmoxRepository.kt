@@ -236,6 +236,8 @@ class ProxmoxRepository(private val proxmoxDao: ProxmoxDao) {
 
     suspend fun insertServer(server: ProxmoxServer) = proxmoxDao.insertServer(server)
 
+    suspend fun updateServer(server: ProxmoxServer) = proxmoxDao.updateServer(server)
+
     suspend fun deleteServer(server: ProxmoxServer) = proxmoxDao.deleteServer(server)
 
     suspend fun getServerById(id: Int): ProxmoxServer? = proxmoxDao.getServerById(id)

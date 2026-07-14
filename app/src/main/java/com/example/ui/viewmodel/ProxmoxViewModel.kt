@@ -106,6 +106,8 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
 
     var themeSetting by mutableStateOf(prefs.getString("theme", "System") ?: "System")
         private set
+    var primaryColorSetting by mutableStateOf(prefs.getString("primary_color", "Mavi") ?: "Mavi") // Set default to Blue ("Mavi") as requested
+        private set
     var timeoutSetting by mutableStateOf(prefs.getString("timeout", "5s") ?: "5s")
         private set
     var is24hTimeSetting by mutableStateOf(prefs.getBoolean("24h_time", true))
@@ -121,9 +123,52 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     var appLockEnabledSetting by mutableStateOf(prefs.getBoolean("app_lock_enabled", false))
         private set
 
+    // AI Provider Configuration Settings
+    var aiProviderSetting by mutableStateOf(prefs.getString("ai_provider", "Gemini") ?: "Gemini")
+        private set
+    var aiApiKeySetting by mutableStateOf(prefs.getString("ai_api_key", "") ?: "")
+        private set
+    var aiModelSetting by mutableStateOf(prefs.getString("ai_model", "gemini-3.5-flash") ?: "gemini-3.5-flash")
+        private set
+    var aiBaseUrlSetting by mutableStateOf(prefs.getString("ai_base_url", "") ?: "")
+        private set
+
+    fun updateAiProviderSetting(value: String) {
+        aiProviderSetting = value
+        prefs.edit().putString("ai_provider", value).apply()
+        // Automatically set sensible default models based on selected provider
+        val defaultModel = when (value) {
+            "Gemini" -> "gemini-3.5-flash"
+            "OpenAI" -> "gpt-4o-mini"
+            "Claude" -> "claude-3-5-sonnet"
+            "Ollama" -> "llama3"
+            else -> "gemini-3.5-flash"
+        }
+        updateAiModelSetting(defaultModel)
+    }
+
+    fun updateAiApiKeySetting(value: String) {
+        aiApiKeySetting = value
+        prefs.edit().putString("ai_api_key", value).apply()
+    }
+
+    fun updateAiModelSetting(value: String) {
+        aiModelSetting = value
+        prefs.edit().putString("ai_model", value).apply()
+    }
+
+    fun updateAiBaseUrlSetting(value: String) {
+        aiBaseUrlSetting = value
+        prefs.edit().putString("ai_base_url", value).apply()
+    }
+
     fun updateThemeSetting(value: String) {
         themeSetting = value
         prefs.edit().putString("theme", value).apply()
+    }
+    fun updatePrimaryColorSetting(value: String) {
+        primaryColorSetting = value
+        prefs.edit().putString("primary_color", value).apply()
     }
     fun updateTimeoutSetting(value: String) {
         timeoutSetting = value
@@ -174,8 +219,16 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     var isExecutingAction by mutableStateOf(false)
 
     // Form states for adding/editing server
+    var editingServerId by mutableStateOf<Int?>(null)
     var serverNameInput by mutableStateOf("")
     var serverUrlInput by mutableStateOf("")
+    
+    // Separate URL components for user-friendly editing as requested
+    var serverTypeInput by mutableStateOf("PVE") // "PVE", "PBS", "PDM"
+    var serverHostInput by mutableStateOf("")
+    var serverPortInput by mutableStateOf("8006")
+    var serverProtocolInput by mutableStateOf("https") // "http", "https"
+    
     var usernameInput by mutableStateOf("")
     var authTypeInput by mutableStateOf("TOKEN") // "TOKEN" or "PASSWORD"
     var tokenNameInput by mutableStateOf("")
@@ -334,11 +387,12 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         } catch (e: Exception) {
+            val errorMsg = getFriendlyErrorMessage(e)
             // Only update error if we don't have past success data, or if we want to show it
             if (clusterUiState !is ClusterUiState.Success) {
-                clusterUiState = ClusterUiState.Error(e.message ?: "Failed to connect to server.")
+                clusterUiState = ClusterUiState.Error(errorMsg)
             } else {
-                actionMessage = "Refresh failed: ${e.message}"
+                actionMessage = "Refresh failed: $errorMsg"
             }
         }
     }
@@ -348,7 +402,7 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
             val tasks = repository.getClusterTasks(server)
             tasksUiState = TasksUiState.Success(tasks)
         } catch (e: Exception) {
-            tasksUiState = TasksUiState.Error(e.message ?: "Failed to fetch task logs.")
+            tasksUiState = TasksUiState.Error(getFriendlyErrorMessage(e))
         }
     }
 
@@ -406,19 +460,84 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun buildFullUrl(): String {
+        var host = serverHostInput.trim()
+        var proto = serverProtocolInput
+        if (host.startsWith("http://")) {
+            proto = "http"
+            host = host.substring(7)
+        } else if (host.startsWith("https://")) {
+            proto = "https"
+            host = host.substring(8)
+        }
+        if (host.endsWith("/")) {
+            host = host.dropLast(1)
+        }
+        val colonIdx = host.lastIndexOf(':')
+        var finalPort = serverPortInput.trim()
+        if (colonIdx >= 0) {
+            val hostPort = host.substring(colonIdx + 1)
+            host = host.substring(0, colonIdx)
+            if (finalPort.isEmpty()) {
+                finalPort = hostPort
+            }
+        }
+        val portSuffix = if (finalPort.isNotEmpty()) ":$finalPort" else ""
+        return "$proto://$host$portSuffix"
+    }
+
+    fun parseUrl(url: String) {
+        var proto = "https"
+        var host = ""
+        var port = ""
+        
+        val clean = url.trim()
+        if (clean.startsWith("http://")) {
+            proto = "http"
+            val rest = clean.substring(7)
+            val colonIdx = rest.lastIndexOf(':')
+            if (colonIdx >= 0) {
+                host = rest.substring(0, colonIdx)
+                port = rest.substring(colonIdx + 1)
+            } else {
+                host = rest
+            }
+        } else if (clean.startsWith("https://")) {
+            proto = "https"
+            val rest = clean.substring(8)
+            val colonIdx = rest.lastIndexOf(':')
+            if (colonIdx >= 0) {
+                host = rest.substring(0, colonIdx)
+                port = rest.substring(colonIdx + 1)
+            } else {
+                host = rest
+            }
+        } else {
+            val colonIdx = clean.lastIndexOf(':')
+            if (colonIdx >= 0) {
+                host = clean.substring(0, colonIdx)
+                port = clean.substring(colonIdx + 1)
+            } else {
+                host = clean
+            }
+        }
+        
+        serverProtocolInput = proto
+        serverHostInput = host
+        serverPortInput = port
+    }
+
     fun saveServer() {
-        if (serverNameInput.isBlank() || serverUrlInput.isBlank() || usernameInput.isBlank()) {
+        if (serverNameInput.isBlank() || serverHostInput.isBlank() || usernameInput.isBlank()) {
             testConnectionStatus = "Please fill in all required fields."
             return
         }
 
-        // Clean up URL
-        var cleanUrl = serverUrlInput.trim()
-        if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            cleanUrl = "https://$cleanUrl"
-        }
+        val cleanUrl = buildFullUrl()
 
+        val serverId = editingServerId
         val newServer = ProxmoxServer(
+            id = serverId ?: 0,
             name = serverNameInput.trim(),
             url = cleanUrl,
             username = usernameInput.trim(),
@@ -430,7 +549,14 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
         )
 
         viewModelScope.launch {
-            repository.insertServer(newServer)
+            if (serverId != null) {
+                repository.updateServer(newServer)
+                if (selectedServer?.id == serverId) {
+                    selectedServer = newServer
+                }
+            } else {
+                repository.insertServer(newServer)
+            }
             clearServerForm()
         }
     }
@@ -445,15 +571,12 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun testConnection() {
-        if (serverUrlInput.isBlank() || usernameInput.isBlank()) {
-            testConnectionStatus = "URL and Username are required to test connection."
+        if (serverHostInput.isBlank() || usernameInput.isBlank()) {
+            testConnectionStatus = "Hostname/IP and Username are required to test connection."
             return
         }
 
-        var cleanUrl = serverUrlInput.trim()
-        if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            cleanUrl = "https://$cleanUrl"
-        }
+        val cleanUrl = buildFullUrl()
 
         val tempServer = ProxmoxServer(
             name = "Test",
@@ -474,7 +597,7 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
                 val res = repository.getClusterResources(tempServer)
                 testConnectionStatus = "Success! Connected. Found ${res.size} cluster resources."
             } catch (e: Exception) {
-                testConnectionStatus = "Connection Failed: ${e.message}"
+                testConnectionStatus = "Connection Failed:\n${getFriendlyErrorMessage(e)}"
             } finally {
                 isTestingConnection = false
             }
@@ -482,8 +605,13 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun clearServerForm() {
+        editingServerId = null
         serverNameInput = ""
         serverUrlInput = ""
+        serverHostInput = ""
+        serverPortInput = "8006"
+        serverProtocolInput = "https"
+        serverTypeInput = "PVE"
         usernameInput = ""
         authTypeInput = "TOKEN"
         tokenNameInput = ""
@@ -491,6 +619,44 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
         passwordInput = ""
         bypassSslInput = true
         testConnectionStatus = null
+    }
+
+    fun populateServerForm(server: ProxmoxServer) {
+        editingServerId = server.id
+        serverNameInput = server.name
+        serverUrlInput = server.url
+        
+        parseUrl(server.url)
+        
+        if (server.url.contains("8007") || server.name.lowercase().contains("pbs")) {
+            serverTypeInput = "PBS"
+        } else if (server.url.contains("8000") || server.name.lowercase().contains("pdm")) {
+            serverTypeInput = "PDM"
+        } else {
+            serverTypeInput = "PVE"
+        }
+        
+        usernameInput = server.username
+        authTypeInput = server.authType
+        tokenNameInput = server.tokenName
+        tokenValueInput = server.tokenValue
+        passwordInput = server.password
+        bypassSslInput = server.bypassSsl
+        testConnectionStatus = null
+    }
+
+    fun updateUsernameSuffix(suffix: String) {
+        val current = usernameInput.trim()
+        if (current.isEmpty()) {
+            usernameInput = "root$suffix"
+        } else {
+            val index = current.indexOf('@')
+            usernameInput = if (index >= 0) {
+                current.substring(0, index) + suffix
+            } else {
+                current + suffix
+            }
+        }
     }
 
     fun backupAllVms() {
@@ -544,6 +710,28 @@ class ProxmoxViewModel(application: Application) : AndroidViewModel(application)
             actionMessage = "Reboot request for node '$nodeName' successfully completed."
             isExecutingAction = false
             fetchClusterData(server)
+        }
+    }
+
+    private fun getFriendlyErrorMessage(e: Throwable): String {
+        val msg = e.message ?: ""
+        return when {
+            msg.contains("401") || (e is retrofit2.HttpException && e.code() == 401) -> {
+                "HTTP 401 Unauthorized\n\nAuthentication failed. Please verify your credentials.\n- If using API Token, ensure the Token ID and Secret are correct and active.\n- If using Username/Password, verify they are correct.\n- Ensure the username includes the realm suffix (e.g. root@pam or admin@pve)."
+            }
+            msg.contains("403") || (e is retrofit2.HttpException && e.code() == 403) -> {
+                "HTTP 403 Forbidden\n\nThe credentials are correct, but the user or token does not have permission to view cluster resources. Please grant Sys.Audit permissions to the user/token."
+            }
+            msg.contains("404") || (e is retrofit2.HttpException && e.code() == 404) -> {
+                "HTTP 404 Not Found\n\nThe Proxmox API path was not found on this server. Please verify the host URL."
+            }
+            msg.contains("timeout") || msg.contains("Timeout") -> {
+                "Connection Timeout\n\nThe server took too long to respond. Please check if the host is powered on, connected to the network, and the port is correct."
+            }
+            msg.contains("Failed to connect") || msg.contains("Unable to resolve host") || msg.contains("route to host") -> {
+                "Cannot Reach Host\n\nCould not connect to the server. Please check your network connection, host IP/URL, and port number."
+            }
+            else -> e.message ?: "Failed to connect to server."
         }
     }
 

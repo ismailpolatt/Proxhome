@@ -91,6 +91,7 @@ fun DashboardScreen(
 
     var currentTab by remember { mutableStateOf("dashboard") } // "dashboard", "resources", "tasks"
     var selectedResourceForDetails by remember { mutableStateOf<ClusterResource?>(null) }
+    var showAiCopilot by remember { mutableStateOf(false) }
 
     // Toast/Snackbar triggers
     val context = LocalContext.current
@@ -245,6 +246,19 @@ fun DashboardScreen(
                 )
             }
         },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showAiCopilot = true },
+                containerColor = Color(0xFF10B981),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(24.dp),
+                icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                text = { Text("AI Copilot", fontWeight = FontWeight.Bold) },
+                modifier = Modifier
+                    .padding(bottom = 16.dp, end = 8.dp)
+                    .testTag("ai_copilot_fab")
+            )
+        },
         containerColor = Color(0xFF020617) // Deep Slate/Black
     ) { innerPadding ->
         Box(
@@ -374,6 +388,13 @@ fun DashboardScreen(
                     viewModel = viewModel,
                     onDismiss = { selectedResourceForDetails = null },
                     onResourceClick = { selectedResourceForDetails = it }
+                )
+            }
+
+            if (showAiCopilot) {
+                AiCopilotDialog(
+                    viewModel = viewModel,
+                    onDismiss = { showAiCopilot = false }
                 )
             }
         }

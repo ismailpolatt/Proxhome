@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -191,6 +193,189 @@ fun OptionsTab(
                     onCheckedChange = { viewModel.updateAppLockEnabledSetting(it) },
                     testTag = "option_app_lock_switch"
                 )
+            }
+
+            // Block AI: AI Copilot Config Header
+            Text(
+                text = "AI COPILOT CONFIGURATION",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF64748B),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Provider Dropdown Selection
+                    val aiProviders = listOf("Gemini", "OpenAI", "Claude", "Ollama")
+                    var expandedProvider by remember { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expandedProvider = true }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "AI Provider",
+                                tint = Color(0xFF10B981)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "AI Provider",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = "Select active LLM engine",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        Box {
+                            Text(
+                                text = viewModel.aiProviderSetting,
+                                color = Color(0xFF10B981),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            DropdownMenu(
+                                expanded = expandedProvider,
+                                onDismissRequest = { expandedProvider = false },
+                                modifier = Modifier.background(Color(0xFF1E293B))
+                            ) {
+                                aiProviders.forEach { provider ->
+                                    DropdownMenuItem(
+                                        text = { Text(provider, color = Color.White) },
+                                        onClick = {
+                                            viewModel.updateAiProviderSetting(provider)
+                                            expandedProvider = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // API Key Field (unless Ollama)
+                    if (viewModel.aiProviderSetting != "Ollama") {
+                        var showApiKey by remember { mutableStateOf(false) }
+                        OutlinedTextField(
+                            value = viewModel.aiApiKeySetting,
+                            onValueChange = { viewModel.updateAiApiKeySetting(it) },
+                            label = { Text("API Key", color = Color(0xFF94A3B8)) },
+                            visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { showApiKey = !showApiKey }) {
+                                    Icon(
+                                        imageVector = if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = "Toggle API Key visibility",
+                                        tint = Color(0xFF64748B)
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF10B981),
+                                unfocusedBorderColor = Color(0xFF334155),
+                                focusedContainerColor = Color(0xFF020617),
+                                unfocusedContainerColor = Color(0xFF020617)
+                            ),
+                            placeholder = {
+                                if (viewModel.aiProviderSetting == "Gemini") {
+                                    Text("Using default system key...", color = Color(0xFF475569))
+                                } else {
+                                    Text("Enter your API key", color = Color(0xFF475569))
+                                }
+                            },
+                            supportingText = {
+                                if (viewModel.aiProviderSetting == "Gemini" && viewModel.aiApiKeySetting.isBlank()) {
+                                    Text("Leave empty to use built-in Gemini API Key", color = Color(0xFF10B981), fontSize = 11.sp)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Model Name Field
+                    OutlinedTextField(
+                        value = viewModel.aiModelSetting,
+                        onValueChange = { viewModel.updateAiModelSetting(it) },
+                        label = { Text("Model Name", color = Color(0xFF94A3B8)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedContainerColor = Color(0xFF020617),
+                            unfocusedContainerColor = Color(0xFF020617)
+                        ),
+                        placeholder = {
+                            val ph = when (viewModel.aiProviderSetting) {
+                                "Gemini" -> "gemini-3.5-flash"
+                                "OpenAI" -> "gpt-4o-mini"
+                                "Claude" -> "claude-3-5-sonnet"
+                                "Ollama" -> "llama3"
+                                else -> ""
+                            }
+                            Text(ph, color = Color(0xFF475569))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Base URL Field (for OpenAI proxy or Ollama)
+                    if (viewModel.aiProviderSetting == "Ollama" || viewModel.aiProviderSetting == "OpenAI") {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = viewModel.aiBaseUrlSetting,
+                            onValueChange = { viewModel.updateAiBaseUrlSetting(it) },
+                            label = {
+                                val lbl = if (viewModel.aiProviderSetting == "Ollama") "Ollama Endpoint URL" else "Custom Base URL (Proxy)"
+                                Text(lbl, color = Color(0xFF94A3B8))
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF10B981),
+                                unfocusedBorderColor = Color(0xFF334155),
+                                focusedContainerColor = Color(0xFF020617),
+                                unfocusedContainerColor = Color(0xFF020617)
+                            ),
+                            placeholder = {
+                                val ph = if (viewModel.aiProviderSetting == "Ollama") "http://10.0.2.2:11434" else "https://api.openai.com"
+                                Text(ph, color = Color(0xFF475569))
+                            },
+                            supportingText = {
+                                val helperText = if (viewModel.aiProviderSetting == "Ollama") {
+                                    "Default: http://10.0.2.2:11434 (Android Host Machine IP)"
+                                } else {
+                                    "Optional: Keep empty to use official OpenAI endpoint"
+                                }
+                                Text(helperText, color = Color(0xFF64748B), fontSize = 11.sp)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
 
             // Debug Section Header

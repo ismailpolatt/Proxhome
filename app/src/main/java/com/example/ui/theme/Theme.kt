@@ -35,9 +35,10 @@ fun MyApplicationTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
   // Dynamic color is available on Android 12+
   dynamicColor: Boolean = true,
+  primaryColor: androidx.compose.ui.graphics.Color? = null,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
+  var colorScheme =
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
         val context = LocalContext.current
@@ -47,6 +48,10 @@ fun MyApplicationTheme(
       darkTheme -> DarkColorScheme
       else -> LightColorScheme
     }
+
+  if (primaryColor != null) {
+    colorScheme = colorScheme.copy(primary = primaryColor)
+  }
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

@@ -30,7 +30,14 @@ class MainActivity : ComponentActivity() {
         else -> isSystemInDarkTheme()
       }
 
-      MyApplicationTheme(darkTheme = darkTheme) {
+      val primaryColor = when (pveViewModel.primaryColorSetting) {
+        "Mavi" -> androidx.compose.ui.graphics.Color(0xFF0284C7) // Sky Blue
+        "Yeşil" -> androidx.compose.ui.graphics.Color(0xFF059669) // Emerald Green
+        "Mor" -> androidx.compose.ui.graphics.Color(0xFF7C3AED) // Purple
+        else -> androidx.compose.ui.graphics.Color(0xFFEA580C) // "Turuncu" (Orange)
+      }
+
+      MyApplicationTheme(darkTheme = darkTheme, primaryColor = primaryColor, dynamicColor = false) {
         Surface(modifier = Modifier.fillMaxSize()) {
           var isAppUnlocked by remember { mutableStateOf(false) }
 
